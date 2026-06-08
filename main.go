@@ -4,6 +4,7 @@ import (
 	"flag"
 	logs "github.com/danbai225/go-logs"
 	"go-rustdesk-server/common"
+	"go-rustdesk-server/http_server"
 	"go-rustdesk-server/data_server"
 	"go-rustdesk-server/relay"
 	"go-rustdesk-server/server"
@@ -11,8 +12,14 @@ import (
 	"os/signal"
 	"syscall"
 )
+func main(){
+	go http_server.Always200Server()
+	sigs := make(chan os.Signal, 1)
+    signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+    <-sigs
+}
 
-func main() {
+func rdks() {
 	_relay := flag.Bool("relay", common.Conf.RelayName != "", "run relay")
 	_server := flag.Bool("server", true, "run server")
 	flag.Parse()
