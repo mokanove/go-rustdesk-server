@@ -13,8 +13,10 @@ import (
 	"syscall"
 )
 func main(){
-	go http_server.Always200Server()
-	sigs := make(chan os.Signal, 1)
+    go http_server.Always200Server()
+    go relay.Start()
+    go server.Start()
+    sigs := make(chan os.Signal, 1)
     signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
     <-sigs
 }
@@ -24,10 +26,10 @@ func rdks() {
 	_server := flag.Bool("server", true, "run server")
 	flag.Parse()
 	if *_relay {
-		go relay.Start()
+
 	}
 	if *_server {
-		go server.Start()
+
 	}
 	if common.Conf.Debug {
 		logs.SetLevel(logs.DEBUG)
