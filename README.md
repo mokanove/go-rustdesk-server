@@ -1,5 +1,5 @@
 # go-rustdesk-server
-Fork from：<https://github.com/danbai225/go-rustdesk-server>
+Forked from：<https://github.com/danbai225/go-rustdesk-server>
 ## ⬇️ Downloads
 [GitHub Release](https://github.com/mokanove/go-rustdesk-server/releases)
 ## 🚀 Features

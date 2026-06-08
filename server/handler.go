@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	logs "github.com/danbai225/go-logs"
 	"go-rustdesk-server/common"
 	"go-rustdesk-server/model/model_proto"
@@ -10,7 +11,7 @@ import (
 )
 
 type ringMsg struct {
-	ID      string //消息发送者ID
+	ID      string
 	Type    string
 	TimeOut uint32
 	InsTime time.Time
@@ -19,122 +20,122 @@ type ringMsg struct {
 }
 
 func getMsgForm(id string, Type []string, timeOut uint) (*common.Writer, interface{}) {
-    if timeOut == 0 {
-        timeOut = 3
-    }
-    // 3秒超时
-    endTime := time.Now().Add(time.Second * time.Duration(timeOut))
-
-    for time.Now().Before(endTime) {
-        for _, t := range Type {
-            if val, ok := ringMsgMap.Load(id + t); ok {
-                v := val.(*ringMsg)
-                // 拿到数据后，从内存中抹除，防止复用老数据
-                ringMsgMap.Delete(id + t) 
-                return v.Writer, v.Val
-            }
-        }
-        // 休息 50 毫秒继续查，既不吃 CPU 性能，又极为精准
-        time.Sleep(time.Millisecond * 50)
-    }
-    return nil, nil
+	if timeOut == 0 {
+		timeOut = 3
+	}
+	endTime := time.Now().Add(time.Second * time.Duration(timeOut))
+	for time.Now().Before(endTime) {
+		for _, t := range Type {
+			if val, ok := ringMsgMap.Load(id + t); ok {
+				v := val.(*ringMsg)
+				ringMsgMap.Delete(id + t)
+				return v.Writer, v.Val
+			}
+		}
+		time.Sleep(time.Millisecond * 50)
+	}
+	return nil, nil
 }
 
 func handlerMsg(msg []byte, writer *common.Writer) {
+	// 硬打印：无论 logger 级别，只要收到包就能看到
+	fmt.Printf("[RX] %s %s  len=%d\n", writer.Type(), writer.GetAddrStr(), len(msg))
+
 	message := model_proto.RendezvousMessage{}
 	err := proto.Unmarshal(msg, &message)
 	if err != nil {
+		fmt.Printf("[RX] unmarshal error: %v  raw=%x\n", err, msg)
 		logs.Err(err)
+		return
+	}
+	if message.Union == nil {
+		fmt.Printf("[RX] empty Union from %s\n", writer.GetAddrStr())
+		return
 	}
 	if blacklistDetection("", writer.GetAddr()) {
 		return
 	}
-	logs.Debug(writer.Type(), writer.GetAddrStr(), reflect.TypeOf(message.Union).String())
+
+	msgType := reflect.TypeOf(message.Union).String()
+	fmt.Printf("[RX] type=%s  from=%s/%s\n", msgType, writer.Type(), writer.GetAddrStr())
+	logs.Debug(writer.Type(), writer.GetAddrStr(), msgType)
+
 	var response proto.Message
-	switch reflect.TypeOf(message.Union).String() {
+	switch msgType {
 	case model_proto.TypeRendezvousMessagePunchHoleRequest:
-		//打洞
-		HoleRequest := message.GetPunchHoleRequest()
-		if HoleRequest == nil {
+		req := message.GetPunchHoleRequest()
+		if req == nil {
 			return
 		}
-		response = model_proto.NewRendezvousMessage(RendezvousMessagePunchHoleRequest(HoleRequest, writer))
+		response = model_proto.NewRendezvousMessage(RendezvousMessagePunchHoleRequest(req, writer))
 	case model_proto.TypeRendezvousMessageRegisterPk:
-		//注册公钥
-		RegisterPk := message.GetRegisterPk()
-		if RegisterPk == nil {
+		req := message.GetRegisterPk()
+		if req == nil {
 			return
 		}
-		response = model_proto.NewRendezvousMessage(RendezvousMessageRegisterPk(RegisterPk, writer))
+		response = model_proto.NewRendezvousMessage(RendezvousMessageRegisterPk(req, writer))
 	case model_proto.TypeRendezvousMessageRegisterPeer:
-		//注册id
-		RegisterPeer := message.GetRegisterPeer()
-		if RegisterPeer == nil {
+		req := message.GetRegisterPeer()
+		if req == nil {
 			return
 		}
-		peer := RendezvousMessageRegisterPeer(RegisterPeer, writer)
+		peer := RendezvousMessageRegisterPeer(req, writer)
 		response = model_proto.NewRendezvousMessage(peer)
 		ConfigureUpdate(writer)
 	case model_proto.TypeRendezvousMessageSoftwareUpdate:
-		//软件更新
-		SoftwareUpdate := message.GetSoftwareUpdate()
-		if SoftwareUpdate == nil {
+		req := message.GetSoftwareUpdate()
+		if req == nil {
 			return
 		}
-		response = model_proto.NewRendezvousMessage(RendezvousMessageSoftwareUpdate(SoftwareUpdate))
+		response = model_proto.NewRendezvousMessage(RendezvousMessageSoftwareUpdate(req))
 	case model_proto.TypeRendezvousMessageTestNatRequest:
-		//网络类型测试
-		TestNatRequest := message.GetTestNatRequest()
-		if TestNatRequest == nil {
+		req := message.GetTestNatRequest()
+		if req == nil {
 			return
 		}
-		response = model_proto.NewRendezvousMessage(RendezvousMessageTestNatRequest(TestNatRequest, writer))
+		response = model_proto.NewRendezvousMessage(RendezvousMessageTestNatRequest(req, writer))
 	case model_proto.TypeRendezvousMessageLocalAddr:
-		//本地地址返回
-		LocalAddr := message.GetLocalAddr()
-		if LocalAddr == nil {
+		req := message.GetLocalAddr()
+		if req == nil {
 			return
 		}
-		RendezvousMessageLocalAddr(LocalAddr, writer)
+		RendezvousMessageLocalAddr(req, writer)
 	case model_proto.TypeRendezvousMessageRequestRelay:
-		//请求继中
-		RequestRelay := message.GetRequestRelay()
-		if RequestRelay == nil {
+		req := message.GetRequestRelay()
+		if req == nil {
 			return
 		}
-		response = model_proto.NewRendezvousMessage(RendezvousMessageRequestRelay(RequestRelay))
+		response = model_proto.NewRendezvousMessage(RendezvousMessageRequestRelay(req))
 	case model_proto.TypeRendezvousMessageRelayResponse:
-		//响应继中
-		RelayResponse := message.GetRelayResponse()
-		if RelayResponse == nil {
+		req := message.GetRelayResponse()
+		if req == nil {
 			return
 		}
-		RendezvousMessageRelayResponse(writer, RelayResponse)
+		RendezvousMessageRelayResponse(writer, req)
 	case model_proto.TypeRendezvousMessagePunchHoleSent:
-		//响应打洞
-		PunchHoleSent := message.GetPunchHoleSent()
-		if PunchHoleSent == nil {
+		req := message.GetPunchHoleSent()
+		if req == nil {
 			return
 		}
-		RendezvousMessagePunchHoleSent(PunchHoleSent, writer)
+		RendezvousMessagePunchHoleSent(req, writer)
 	case model_proto.TypeRendezvousMessageConfigureUpdate:
-		//配置更新
-		ConfigUpdate := message.GetConfigureUpdate()
-		if ConfigUpdate == nil {
+		req := message.GetConfigureUpdate()
+		if req == nil {
 			return
 		}
-		RendezvousMessageConfigureUpdate(ConfigUpdate)
+		RendezvousMessageConfigureUpdate(req)
 	case model_proto.TypeRendezvousMessageOnlineRequest:
-		//在线请求
-		OnlineRequest := message.GetOnlineRequest()
-		if OnlineRequest == nil {
+		req := message.GetOnlineRequest()
+		if req == nil {
 			return
 		}
-		response = model_proto.NewRendezvousMessage(RendezvousMessageOnlineRequest(OnlineRequest))
+		response = model_proto.NewRendezvousMessage(RendezvousMessageOnlineRequest(req))
 	default:
-		logs.Debug(reflect.TypeOf(message.Union).String())
+		fmt.Printf("[RX] UNKNOWN type: %s\n", msgType)
+		logs.Debug("unknown:", msgType)
 	}
 	if response != nil {
+		fmt.Printf("[TX] sending response to %s/%s\n", writer.Type(), writer.GetAddrStr())
 		writer.SendMsg(response)
 	}
 }

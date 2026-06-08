@@ -12,29 +12,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"io"
 	"net"
-	"strconv"
-	"strings"
 	"time"
 )
 
 var ctx = gctx.New()
 var cache = gcache.New()
 var cacheTimeOut = time.Second * 60
-
-//func init() {
-//	go func() {
-//		for true {
-//			c, _ := cache.Data(ctx)
-//			strings := make([]string, 0)
-//			for k, _ := range c {
-//				strings = append(strings, k.(string))
-//			}
-//			sort.Strings(strings)
-//			time.Sleep(time.Second)
-//			logs.Info(strings)
-//		}
-//	}()
-//}
 
 type Writer struct {
 	key   string
@@ -44,25 +27,22 @@ type Writer struct {
 	addr  *net.UDPAddr
 	loop  bool
 }
+
 type Addr struct {
 	ip   string
 	port uint32
 }
 
-func (a *Addr) GetIP() string {
-	return a.ip
-}
-func (a *Addr) GetPort() uint32 {
-	return a.port
-}
+func (a *Addr) GetIP() string   { return a.ip }
+func (a *Addr) GetPort() uint32 { return a.port }
 func (a *Addr) Parsing(addr string) {
-	ip, p := getIp(addr)
+	ip, p := GetHostPort(addr) // 使用修复了 IPv6 的版本
 	a.ip = ip
 	a.port = uint32(p)
 }
-func (w *Writer) Type() string {
-	return w._type
-}
+
+func (w *Writer) Type() string { return w._type }
+
 func (w *Writer) Write(p []byte) (n int, err error) {
 	switch w._type {
 	case udp:
@@ -82,6 +62,7 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	}
 	return 0, errors.New("type Err")
 }
+
 func (w *Writer) WriteToAddr(p []byte, addr string) (n int, err error) {
 	switch w._type {
 	case udp:
@@ -94,18 +75,11 @@ func (w *Writer) WriteToAddr(p []byte, addr string) (n int, err error) {
 		}
 		return w.uConn.WriteToUDP(p, udpAddr)
 	case tcp:
-		//if w.tConn == nil {
-		//	return 0, errors.New("tConn==nil")
-		//}
-		//encoder, err := my_bytes.Encoder(p)
-		//if err != nil {
-		//	return 0, err
-		//}
-		//return w.tConn.Write(encoder)
 		return 0, errors.New("unrealized")
 	}
 	return 0, errors.New("type Err")
 }
+
 func (w *Writer) GetAddrStr() string {
 	switch w._type {
 	case udp:
@@ -115,6 +89,7 @@ func (w *Writer) GetAddrStr() string {
 	}
 	return ""
 }
+
 func (w *Writer) GetAddr() *Addr {
 	addr := ""
 	switch w._type {
@@ -127,6 +102,7 @@ func (w *Writer) GetAddr() *Addr {
 	a.Parsing(addr)
 	return a
 }
+
 func (w *Writer) SetKey(key string) {
 	mk := ""
 	switch w._type {
@@ -138,6 +114,7 @@ func (w *Writer) SetKey(key string) {
 	_ = cache.Set(ctx, mk, w, cacheTimeOut)
 	w.key = key
 }
+
 func (w *Writer) setAddr(addr string) {
 	mk := ""
 	switch w._type {
@@ -148,6 +125,7 @@ func (w *Writer) setAddr(addr string) {
 	}
 	_ = cache.Set(ctx, mk, w, time.Second*60)
 }
+
 func (w *Writer) remove() {
 	mk := ""
 	switch w._type {
@@ -158,12 +136,11 @@ func (w *Writer) remove() {
 	}
 	_, _ = cache.Remove(ctx, mk)
 	if w.key != "" {
-		mk = udp + w.key
-		_, _ = cache.Remove(ctx, mk)
-		mk = tcp + w.key
-		_, _ = cache.Remove(ctx, mk)
+		_, _ = cache.Remove(ctx, udp+w.key)
+		_, _ = cache.Remove(ctx, tcp+w.key)
 	}
 }
+
 func (w *Writer) Copy(dst *Writer) {
 	if w._type != tcp || dst == nil || dst.tConn == nil {
 		return
@@ -175,59 +152,57 @@ func (w *Writer) Copy(dst *Writer) {
 	go io.Copy(dst.tConn, w.tConn)
 	io.Copy(w.tConn, dst.tConn)
 }
+
 func (w *Writer) SendMsg(message proto.Message) {
 	if message == nil {
 		return
 	}
-	marshal, err2 := proto.Marshal(message)
-	if err2 != nil {
-		logs.Err(err2)
+	marshal, err := proto.Marshal(message)
+	if err != nil {
+		logs.Err(err)
 		return
 	}
-	_, err2 = w.Write(marshal)
-	if err2 != nil {
-		logs.Err(err2)
+	if _, err = w.Write(marshal); err != nil {
+		logs.Err(err)
 	}
 }
+
 func (w *Writer) SendJsonMsg(message *model_msg.Msg) {
 	if message == nil {
 		return
 	}
-	marshal, err2 := json.Marshal(message)
-	if err2 != nil {
-		logs.Err(err2)
+	marshal, err := json.Marshal(message)
+	if err != nil {
+		logs.Err(err)
 		return
 	}
-	_, err2 = w.Write(marshal)
-	if err2 != nil {
-		logs.Err(err2)
+	if _, err = w.Write(marshal); err != nil {
+		logs.Err(err)
 	}
 }
+
 func (w *Writer) Close() {
 	if w._type == tcp {
 		_ = w.tConn.Close()
 	}
 	w.remove()
 }
+
+// SelfAddr 返回本端监听 IP，用于告知对端 relay 地址。
 func (w *Writer) SelfAddr() string {
 	switch w._type {
 	case udp:
-		ip, _ := getIp(w.uConn.LocalAddr().String())
+		ip, _ := GetHostPort(w.uConn.LocalAddr().String())
 		return ip
 	case tcp:
-		ip, _ := getIp(w.tConn.RemoteAddr().String())
+		ip, _ := GetHostPort(w.tConn.RemoteAddr().String())
 		return ip
 	}
 	return ""
 }
+
 func GetWriter(key, _type string) (*Writer, error) {
-	mk := ""
-	switch _type {
-	case udp:
-		mk = fmt.Sprint(udp, key)
-	case tcp:
-		mk = fmt.Sprint(tcp, key)
-	}
+	mk := fmt.Sprint(_type, key)
 	get, _ := cache.Get(ctx, mk)
 	if get != nil {
 		if v, ok := get.Val().(*Writer); ok {
@@ -236,30 +211,18 @@ func GetWriter(key, _type string) (*Writer, error) {
 	}
 	return nil, errors.New("OFFLINE")
 }
+
 func addWriter(key, _type string, w *Writer) {
-	mk := ""
+	mk := fmt.Sprint(_type, key)
 	t := cacheTimeOut
-	switch _type {
-	case udp:
-		mk = fmt.Sprint(udp, key)
-	case tcp:
-		mk = fmt.Sprint(tcp, key)
-		t = 0
+	if _type == tcp {
+		t = 0 // TCP 连接不过期，断开时由 Close() 清理
 	}
-	err := cache.Set(ctx, mk, w, t)
-	if err != nil {
+	if err := cache.Set(ctx, mk, w, t); err != nil {
 		logs.Err(err)
 	}
 }
+
 func RemoveWriter(w *Writer) {
 	w.remove()
-}
-func getIp(addr string) (string, uint64) {
-	split := strings.Split(addr, ":")
-	if len(split) != 2 {
-		return "", 0
-	}
-	ip := split[0]
-	p, _ := strconv.ParseUint(split[1], 10, 32)
-	return ip, p
 }

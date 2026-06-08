@@ -2,6 +2,7 @@ package http_server
 
 import (
 	"fmt"
+	"go-rustdesk-server/common"
 	"net/http"
 )
 
@@ -10,13 +11,10 @@ func Always200Server() {
 		w.Header().Set("Content-Length", "0")
 		w.Header().Del("Content-Type")
 		w.WriteHeader(http.StatusOK)
-		
-		fmt.Printf("[HTTP] Client connected from %s, returned a fake 200 OK\n", r.RemoteAddr)
+		fmt.Printf("[HTTP] %s → 200 OK\n", r.RemoteAddr)
 	})
-
-	fmt.Println("[HTTP] Started an Always 200 OK Server, listening on port 21114 from any addr")
-
-	if err := http.ListenAndServe(":21114", nil); err != nil {
-		fmt.Printf("[HTTP] Server failed to start: %v\n", err)
+	fmt.Printf("[HTTP] Listening %s\n", common.PortHTTP)
+	if err := http.ListenAndServe("0.0.0.0"+common.PortHTTP, nil); err != nil {
+		fmt.Printf("[HTTP] Server failed: %v\n", err)
 	}
 }

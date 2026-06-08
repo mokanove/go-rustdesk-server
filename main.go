@@ -2,21 +2,27 @@ package main
 
 import (
 	logs "github.com/danbai225/go-logs"
-	"os"
-	"os/signal"
-	"syscall"
+	"go-rustdesk-server/common"
 	"go-rustdesk-server/http_server"
 	"go-rustdesk-server/relay"
 	"go-rustdesk-server/server"
-	
+	"os"
+	"os/signal"
+	"syscall"
 )
-func main(){
-	logs.SetLevel(logs.INFO)
-	logs.SetWriteLogs(logs.INFO | logs.ERR)
+
+func main() {
+	// DEBUG 级别：所有收包/处理日志都打出来
+	logs.SetLevel(logs.DEBUG)
+	logs.SetWriteLogs(logs.DEBUG | logs.INFO | logs.ERR)
+
+	common.LoadKey()
+
 	go http_server.Always200Server()
 	go server.Start()
 	go relay.Start()
+
 	sigs := make(chan os.Signal, 1)
-    signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-    <-sigs
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
 }

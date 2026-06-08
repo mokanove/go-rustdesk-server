@@ -1,26 +1,22 @@
 package relay
 
 import (
-	"encoding/json"
 	"fmt"
 	logs "github.com/danbai225/go-logs"
-	"go-rustdesk-server/model/model_msg"
+	"go-rustdesk-server/common"
 	"go-rustdesk-server/model/model_proto"
 	"go-rustdesk-server/my_bytes"
-	"go-rustdesk-server/common"
 	"google.golang.org/protobuf/proto"
-	"net"
-	"os"
 	"reflect"
-	"time"
 )
 
 func Start() {
-	go regRelay()
-	common.NewMonitor(true, "tcp", fmt.Sprintf(":%d", common.Conf.RelayPort), handlerMsg).Start()
+	fmt.Printf("[Relay] Listening TCP %s\n", common.PortRelay)
+	common.NewMonitor(true, "tcp", "0.0.0.0"+common.PortRelay, handlerMsg).Start()
 }
 
 func handlerMsg(msg []byte, writer *common.Writer) {
+	fmt.Printf("[RELAY-RX] %s  len=%d\n", writer.GetAddrStr(), len(msg))
 	if blacklistDetection(writer.GetAddr()) {
 		writer.Close()
 		return
@@ -29,128 +25,47 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 	err := proto.Unmarshal(msg, &message)
 	if err != nil || message.Union == nil {
 		if err != nil {
+			fmt.Printf("[RELAY-RX] unmarshal error: %v\n", err)
 			logs.Err(err)
 		}
 		return
 	}
-	logs.Debug(writer.Type(), writer.GetAddrStr(), reflect.TypeOf(message.Union).String())
-	switch reflect.TypeOf(message.Union).String() {
+	msgType := reflect.TypeOf(message.Union).String()
+	fmt.Printf("[RELAY-RX] type=%s from=%s\n", msgType, writer.GetAddrStr())
+	logs.Debug(writer.Type(), writer.GetAddrStr(), msgType)
+
+	switch msgType {
 	case model_proto.TypeRendezvousMessageRequestRelay:
-		RequestRelay := message.GetRequestRelay()
-		if RequestRelay == nil {
+		rr := message.GetRequestRelay()
+		if rr == nil {
 			return
 		}
-		if common.Conf.MustKey {
-			if RequestRelay.LicenceKey != common.GetPkStr() {
-				return
-			}
+		if common.MustKey && rr.LicenceKey != common.GetPkStr() {
+			fmt.Printf("[RELAY] key mismatch from %s\n", writer.GetAddrStr())
+			return
 		}
-		uuid := RequestRelay.GetUuid()
-		logs.Debug(RequestRelay.Id, uuid, RequestRelay.RelayServer, RequestRelay.Token, RequestRelay.Secure, my_bytes.DecodeAddr(RequestRelay.SocketAddr))
-		if uuid != "" {
-			w, err1 := common.GetWriter(uuid, common.TCP)
-			if err1 != nil {
-				logs.Debug("not id", uuid)
-				writer.SetKey(uuid)
-			} else if w != nil {
-				logs.Debug("get id", uuid)
-				common.RemoveWriter(writer)
-				common.RemoveWriter(w)
-				go writer.Copy(w)
-			}
+		uuid := rr.GetUuid()
+		fmt.Printf("[RELAY] uuid=%s from=%s\n", uuid, writer.GetAddrStr())
+		logs.Debug(rr.Id, uuid, rr.RelayServer, rr.Token, rr.Secure, my_bytes.DecodeAddr(rr.SocketAddr))
+		if uuid == "" {
+			return
 		}
-	default:
-		logs.Debug(writer.GetAddrStr(), reflect.TypeOf(message.Union).String())
-	}
-}
-
-// 黑名单检测
-func blacklistDetection(addr *common.Addr) bool {
-	in := common.InList(addr.GetIP())
-	if common.Conf.WhiteList && in {
-		return false
-	}
-	if !common.Conf.WhiteList && in {
-		return true
-	}
-	return false
-}
-func regRelay() {
-	var dial net.Conn
-	var err error
-	var read int
-	d, u, p := testSpeed()
-	for {
-		dial, err = net.Dial("udp", common.Conf.RegServer)
-		if err != nil {
-			dial = nil
-			logs.Err(err)
+		w, err1 := common.GetWriter(uuid, common.TCP)
+		if err1 != nil {
+			fmt.Printf("[RELAY] waiting for peer %s\n", uuid)
+			writer.SetKey(uuid)
 		} else {
-			go func() {
-				for dial != nil {
-					marshal, _ := json.Marshal(model_msg.Msg{
-						Base: model_msg.Base{
-							MsgType: model_msg.RegType,
-						},
-						RegMsg: &model_msg.RegMsg{IP: common.Conf.RelayIp, Name: common.Conf.RelayName, Time: time.Now(), RelayPort: common.Conf.RelayPort, Upload: u, Download: d, Ping: p, Cpu: cpuTest(), NetFlow: netFlow()},
-					})
-					_, err1 := dial.Write(marshal)
-					if err1 != nil {
-						logs.Err(err1)
-					}
-					time.Sleep(12 * time.Second)
-				}
-			}()
+			fmt.Printf("[RELAY] pairing %s ↔ %s\n", writer.GetAddrStr(), w.GetAddrStr())
+			common.RemoveWriter(writer)
+			common.RemoveWriter(w)
+			go writer.Copy(w)
 		}
-		bytes := make([]byte, 1024)
-		for err == nil {
-			read, err = dial.Read(bytes)
-			if err == nil {
-				bs := make([]byte, read)
-				copy(bs, bytes[:read])
-				go handlerSyncMsg(bs, dial)
-			}
-		}
-		time.Sleep(time.Second * 15)
+	default:
+		fmt.Printf("[RELAY] unknown type: %s\n", msgType)
+		logs.Debug(writer.GetAddrStr(), msgType)
 	}
 }
 
-var firstReg = false
-
-func handlerSyncMsg(msg []byte, writer net.Conn) {
-	if len(msg) == 0 {
-		return
-	}
-	m := model_msg.Msg{}
-	err := json.Unmarshal(msg, &m)
-	if err != nil {
-		logs.Err(err)
-		return
-	}
-	if m.MsgType == 0 {
-		return
-	}
-	switch m.MsgType {
-	case model_msg.RegRType:
-		if m.RegMsgR == nil {
-			return
-		}
-		switch m.RegMsgR.Err {
-		case model_msg.ExistName:
-			logs.Err(m.RegMsgR.Err)
-			os.Exit(1)
-		default:
-			if !firstReg {
-				logs.Info("注册成功")
-				firstReg = true
-			}
-		}
-	case model_msg.SyncListType:
-		if m.SyncList == nil {
-			return
-		}
-		common.UpDataList(m.SyncList.WhiteList, m.SyncList.List)
-	default:
-		logs.Debug(m.MsgType)
-	}
+func blacklistDetection(addr *common.Addr) bool {
+	return common.InList(addr.GetIP())
 }

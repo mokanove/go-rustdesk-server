@@ -22,6 +22,7 @@ func genKey() error {
 	err = os.WriteFile(keyPath+".pub", key, os.ModePerm)
 	return err
 }
+
 func LoadKey() {
 	if !Exists(keyPath) {
 		_ = os.MkdirAll("key", os.ModePerm)
@@ -45,13 +46,14 @@ func LoadKey() {
 	pkStr = base64.StdEncoding.EncodeToString(pk)
 	logs.Info("key=", pkStr)
 }
+
 func Sign(data []byte) []byte {
 	return append(ed25519.Sign(sk, data), data...)
 }
+
 func GetSignPK(version, id string, peerPK []byte) []byte {
-	bytes := make([]byte, 0)
 	if version == "" || id == "" {
-		return bytes
+		return []byte{}
 	}
 	logs.Debug(id, peerPK)
 	marshal, _ := proto.Marshal(&model_proto.IdPk{
@@ -60,6 +62,7 @@ func GetSignPK(version, id string, peerPK []byte) []byte {
 	})
 	return Sign(marshal)
 }
+
 func GetPkStr() string {
 	return pkStr
 }

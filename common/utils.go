@@ -2,28 +2,23 @@ package common
 
 import (
 	"fmt"
-	logs "github.com/danbai225/go-logs"
 	"net"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
 func ToMap(in interface{}, tagName string) (map[string]interface{}, error) {
 	out := make(map[string]interface{})
-
 	v := reflect.ValueOf(in)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-
-	if v.Kind() != reflect.Struct { // 非结构体返回错误提示
+	if v.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("ToMap only accepts struct or struct pointer; got %T", v)
 	}
-
 	t := v.Type()
-	// 遍历结构体字段
-	// 指定tagName值为map中key;字段值为map中value
 	for i := 0; i < v.NumField(); i++ {
 		fi := t.Field(i)
 		if tagValue := fi.Tag.Get(tagName); tagValue != "" {
@@ -32,8 +27,9 @@ func ToMap(in interface{}, tagName string) (map[string]interface{}, error) {
 	}
 	return out, nil
 }
+
 func Exists(path string) bool {
-	_, err := os.Stat(path) //os.Stat获取文件信息
+	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsExist(err) {
 			return true
@@ -54,45 +50,36 @@ func IsDir(path string) bool {
 func IsFile(path string) bool {
 	return !IsDir(path)
 }
+
 func InSameSubnet(ip1Str, ip2Str, maskStr string) bool {
 	ip1 := net.ParseIP(ip1Str)
 	ip2 := net.ParseIP(ip2Str)
 	mask := net.IPMask(net.ParseIP(maskStr).To4())
-
 	if ip1 == nil || ip2 == nil {
 		return false
 	}
-
-	network1 := ip1.Mask(mask)
-	network2 := ip2.Mask(mask)
-	return network1.Equal(network2)
+	return ip1.Mask(mask).Equal(ip2.Mask(mask))
 }
 
 func InSubnet(ip string) bool {
-	if !(strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.")) {
+	if !(strings.HasPrefix(ip, "192.168.") ||
+		strings.HasPrefix(ip, "10.") ||
+		strings.HasPrefix(ip, "172.")) {
 		return false
 	}
-	// 获取所有的网络接口
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		return false
 	}
-	// 遍历所有的网络接口
-	for _, i := range interfaces {
-		// 获取接口的所有地址
-		addrs, _ := i.Addrs()
-		// 遍历接口的所有地址
+	for _, iface := range interfaces {
+		addrs, _ := iface.Addrs()
 		for _, addr := range addrs {
-			// 检查地址是否是IPNet类型，IPNet类型的地址包含子网掩码信息
 			if ipNet, ok := addr.(*net.IPNet); ok {
-				// 获取本机的IP地址
 				localIP := ipNet.IP.String()
-				// 如果这个地址是你的内网IP地址
-				if strings.HasPrefix(localIP, "192.168.") || strings.HasPrefix(localIP, "10.") || strings.HasPrefix(localIP, "172.") {
-					// 打印出子网掩码
-					logs.Debug("Subnet mask for IP", localIP, "is", ipNet.Mask.String(), "ip:", ip)
-					// 检查ip地址是否在子网内
-					if InSameSubnet(localIP, ip, ipNet.Mask.String()) {
+				if strings.HasPrefix(localIP, "192.168.") ||
+					strings.HasPrefix(localIP, "10.") ||
+					strings.HasPrefix(localIP, "172.") {
+					if InSameSubnet(localIP, ip, net.IP(ipNet.Mask).String()) {
 						return true
 					}
 				}
@@ -100,4 +87,25 @@ func InSubnet(ip string) bool {
 		}
 	}
 	return false
+}
+
+// getIp 解析 "host:port" 字符串，正确处理 IPv6 地址（如 [::1]:1234）。
+func GetHostPort(addr string) (string, uint64) {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", 0
+	}
+	p, _ := strconv.ParseUint(portStr, 10, 32)
+	return host, p
+}
+
+// OutboundIP 获取本机对外 IP（用于向客户端下发 relay 地址）。
+func OutboundIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "127.0.0.1"
+	}
+	defer conn.Close()
+	host, _, _ := net.SplitHostPort(conn.LocalAddr().String())
+	return host
 }
