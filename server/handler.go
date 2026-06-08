@@ -19,36 +19,27 @@ type ringMsg struct {
 }
 
 func getMsgForm(id string, Type []string, timeOut uint) (*common.Writer, interface{}) {
-	if timeOut == 0 {
-		timeOut = 3
-	}
-	timer := time.NewTimer(time.Second * time.Duration(timeOut))
-	defer timer.Stop()
-	m := make(map[string]*struct{})
-	for _, v := range Type {
-		m[v] = &struct{}{}
-	}
-	for {
-		select {
-		case <-timer.C:
-			return nil, nil
-		default:
-			next := r.Next()
-			val := next.Val()
-			now := time.Now()
-			if val != nil {
-				if v, ok := val.(*ringMsg); ok {
-					if v.InsTime.Add(time.Second * time.Duration(v.TimeOut)).Before(now) {
-						next.Set(nil)
-					} else if v.ID == id && m[v.Type] != nil {
-						next.Set(nil)
-						return v.Writer, v.Val
-					}
-				}
-			}
-		}
-	}
+    if timeOut == 0 {
+        timeOut = 3
+    }
+    // 3秒超时
+    endTime := time.Now().Add(time.Second * time.Duration(timeOut))
+
+    for time.Now().Before(endTime) {
+        for _, t := range Type {
+            if val, ok := ringMsgMap.Load(id + t); ok {
+                v := val.(*ringMsg)
+                // 拿到数据后，从内存中抹除，防止复用老数据
+                ringMsgMap.Delete(id + t) 
+                return v.Writer, v.Val
+            }
+        }
+        // 休息 50 毫秒继续查，既不吃 CPU 性能，又极为精准
+        time.Sleep(time.Millisecond * 50)
+    }
+    return nil, nil
 }
+
 func handlerMsg(msg []byte, writer *common.Writer) {
 	message := model_proto.RendezvousMessage{}
 	err := proto.Unmarshal(msg, &message)

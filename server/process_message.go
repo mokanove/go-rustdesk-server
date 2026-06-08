@@ -7,16 +7,39 @@ import (
 	"go-rustdesk-server/model/model_proto"
 	"go-rustdesk-server/my_bytes"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"sync"
 	"time"
 )
 
+// ================= 纯内存数据库与消息队列平替方案 =================
+var (
+	memoryPeerMap     sync.Map // key: id (string), value: *model.Peer
+	rendezvousServers []string 
+	serial            int32    = 1
+	ringMsgMap        sync.Map // key: string (id+type), value: *ringMsg
+)
+
+// 黑名单检测默认全部放行
+func blacklistDetection(id string, addr *common.Addr) bool {
+	return false 
+}
+
+// 焊死 21117 中继端口
+func getRelay() string {
+	if common.Conf.RelayName != "" {
+		return common.Conf.RelayName
+	}
+	return ":21117"
+}
+
 func RendezvousMessageRegisterPeer(message *model_proto.RegisterPeer, writer *common.Writer) *model_proto.RegisterPeerResponse {
 	res := &model_proto.RegisterPeerResponse{}
-	peer, err := dataSever.GetPeerByID(message.GetId())
-	if err != nil {
-		logs.Err(err)
-		return res
+
+	var peer *model.Peer
+	if val, ok := memoryPeerMap.Load(message.GetId()); ok {
+		peer = val.(*model.Peer)
 	}
+
 	if peer == nil {
 		res.RequestPk = true
 	} else {
@@ -33,16 +56,13 @@ func RendezvousMessageRegisterPeer(message *model_proto.RegisterPeer, writer *co
 		if ipChange {
 			peer.IP = writer.GetAddr().GetIP()
 			peer.LastRegTime = &now
-			err = dataSever.UpdatePeer(peer)
-			if err != nil {
-				logs.Err(err)
-				return res
-			}
+			memoryPeerMap.Store(peer.ID, peer)
 			writer.SetKey(message.GetId())
 		}
 	}
 	return res
 }
+
 func RendezvousMessageRegisterPk(message *model_proto.RegisterPk, writer *common.Writer) *model_proto.RegisterPkResponse {
 	res := &model_proto.RegisterPkResponse{Result: model_proto.RegisterPkResponse_SERVER_ERROR}
 
@@ -56,20 +76,27 @@ func RendezvousMessageRegisterPk(message *model_proto.RegisterPk, writer *common
 		change = true
 		id = message.GetOldId()
 	}
-	idPeer, err := dataSever.GetPeerByID(id)
-	if err != nil {
-		logs.Debug(err)
-		return res
+
+	var idPeer *model.Peer
+	if val, ok := memoryPeerMap.Load(id); ok {
+		idPeer = val.(*model.Peer)
 	}
+
 	if idPeer == nil {
-		idPeer, _ = dataSever.GetPeerByUUID(string(message.GetUuid()))
+		memoryPeerMap.Range(func(key, value interface{}) bool {
+			p := value.(*model.Peer)
+			if p.UUID == string(message.GetUuid()) {
+				idPeer = p
+				return false
+			}
+			return true
+		})
 	}
+
 	if idPeer != nil && !change {
 		if idPeer.UUID == string(message.GetUuid()) {
-			//存在注册
 			if string(idPeer.PK) != string(message.GetPk()) {
 				if idPeer.IP != writer.GetAddr().GetIP() {
-					//都不匹配
 					res.Result = model_proto.RegisterPkResponse_UUID_MISMATCH
 					return res
 				}
@@ -89,7 +116,7 @@ func RendezvousMessageRegisterPk(message *model_proto.RegisterPk, writer *common
 			ipChange = true
 		}
 	}
-	if ipChange {
+	if ipChange && idPeer != nil {
 		idPeer.IP = writer.GetAddr().GetIP()
 		writer.SetKey(idPeer.ID)
 	}
@@ -108,22 +135,19 @@ func RendezvousMessageRegisterPk(message *model_proto.RegisterPk, writer *common
 			LastRegTime: &now,
 			IP:          writer.GetAddr().GetIP(),
 		}
-		err = dataSever.AddPeerOrUpdate(peer)
-		if err != nil {
-			res.Result = model_proto.RegisterPkResponse_SERVER_ERROR
-			logs.Err(err)
-		} else {
-			res.Result = model_proto.RegisterPkResponse_OK
-			writer.SetKey(message.GetId())
-		}
+		memoryPeerMap.Store(peer.ID, peer)
+		res.Result = model_proto.RegisterPkResponse_OK
+		writer.SetKey(message.GetId())
 	}
 
 	return res
 }
+
 func RendezvousMessageSoftwareUpdate(message *model_proto.SoftwareUpdate) *model_proto.SoftwareUpdate {
 	res := &model_proto.SoftwareUpdate{}
 	return res
 }
+
 func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, writer *common.Writer) protoreflect.ProtoMessage {
 	res := &model_proto.PunchHoleResponse{}
 	if common.Conf.MustKey {
@@ -132,12 +156,12 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 			return res
 		}
 	}
-	peer, err := dataSever.GetPeerByID(message.Id)
-	if err != nil {
-		logs.Err(err)
-		res.OtherFailure = err.Error()
-		return res
+
+	var peer *model.Peer
+	if val, ok := memoryPeerMap.Load(message.Id); ok {
+		peer = val.(*model.Peer)
 	}
+
 	if peer == nil {
 		res.Failure = model_proto.PunchHoleResponse_ID_NOT_EXIST
 		return res
@@ -148,7 +172,6 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 		return res
 	}
 
-	//判断是否在同一子网（局域网）
 	writer.GetAddr().GetIP()
 	peerIsLan := common.InSubnet(peer.IP)
 	isLan := common.InSubnet(writer.GetAddr().GetIP())
@@ -213,6 +236,7 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 	}
 	return res
 }
+
 func RendezvousMessageTestNatRequest(message *model_proto.TestNatRequest, writer *common.Writer) *model_proto.TestNatResponse {
 	res := &model_proto.TestNatResponse{
 		Port: int32(writer.GetAddr().GetPort()),
@@ -223,8 +247,9 @@ func RendezvousMessageTestNatRequest(message *model_proto.TestNatRequest, writer
 	}
 	return res
 }
+
 func RendezvousMessageLocalAddr(message *model_proto.LocalAddr, writer *common.Writer) {
-	r.Put(&ringMsg{
+	ringMsgMap.Store(message.GetId()+model_proto.TypeRendezvousMessageLocalAddr, &ringMsg{
 		ID:      message.GetId(),
 		Type:    model_proto.TypeRendezvousMessageLocalAddr,
 		TimeOut: 3,
@@ -233,17 +258,21 @@ func RendezvousMessageLocalAddr(message *model_proto.LocalAddr, writer *common.W
 		Writer:  writer,
 	})
 }
+
 func RendezvousMessageRequestRelay(message *model_proto.RequestRelay) *model_proto.RelayResponse {
 	res := &model_proto.RelayResponse{}
 	w, err := common.GetWriter(message.GetId(), common.UDP)
 	if err != nil {
 		return nil
 	} else {
-		peer, err1 := dataSever.GetPeerByID(message.Id)
-		if err1 != nil {
-			logs.Debug(err1)
+		var peer *model.Peer
+		if val, ok := memoryPeerMap.Load(message.Id); ok {
+			peer = val.(*model.Peer)
+		}
+		if peer == nil {
 			return res
 		}
+
 		w.SendMsg(model_proto.NewRendezvousMessage(message))
 		_, lMsg := getMsgForm(message.GetId(), []string{model_proto.TypeRendezvousMessageRelayResponse}, 3)
 		if lMsg == nil {
@@ -257,8 +286,9 @@ func RendezvousMessageRequestRelay(message *model_proto.RequestRelay) *model_pro
 	}
 	return res
 }
+
 func RendezvousMessageRelayResponse(w *common.Writer, message *model_proto.RelayResponse) {
-	r.Put(&ringMsg{
+	ringMsgMap.Store(message.GetId()+model_proto.TypeRendezvousMessageRelayResponse, &ringMsg{
 		ID:      message.GetId(),
 		Type:    model_proto.TypeRendezvousMessageRelayResponse,
 		TimeOut: 3,
@@ -267,15 +297,22 @@ func RendezvousMessageRelayResponse(w *common.Writer, message *model_proto.Relay
 		Writer:  w,
 	})
 }
+
 func ConfigureUpdate(writer *common.Writer) {
+	// 焊死下发给客户端的配置，让它们去撞 21116
+	relaySrv := common.Conf.RelayName
+	if relaySrv == "" {
+		relaySrv = ":21116" 
+	}
+
 	writer.SendMsg(model_proto.NewRendezvousMessage(&model_proto.ConfigUpdate{
 		Serial:            serial,
-		RendezvousServers: rendezvousServers,
+		RendezvousServers: []string{relaySrv}, 
 	}))
 }
 
 func RendezvousMessagePunchHoleSent(message *model_proto.PunchHoleSent, writer *common.Writer) {
-	r.Put(&ringMsg{
+	ringMsgMap.Store(message.GetId()+model_proto.TypeRendezvousMessagePunchHoleSent, &ringMsg{
 		ID:      message.GetId(),
 		Type:    model_proto.TypeRendezvousMessagePunchHoleSent,
 		TimeOut: 3,
@@ -284,14 +321,19 @@ func RendezvousMessagePunchHoleSent(message *model_proto.PunchHoleSent, writer *
 		Writer:  writer,
 	})
 }
+
 func RendezvousMessageConfigureUpdate(message *model_proto.ConfigUpdate) {
 	logs.Debug(message.Serial, message.RendezvousServers)
 }
+
 func RendezvousMessageOnlineRequest(message *model_proto.OnlineRequest) *model_proto.OnlineResponse {
 	states := make([]byte, (len(message.GetPeers())+7)/8)
 	for i, peerID := range message.GetPeers() {
-		peer, err := dataSever.GetPeerByID(peerID)
-		if err != nil || peer == nil {
+		var peer *model.Peer
+		if val, ok := memoryPeerMap.Load(peerID); ok {
+			peer = val.(*model.Peer)
+		}
+		if peer == nil || peer.LastRegTime == nil {
 			continue
 		}
 		statesIdx := i / 8
