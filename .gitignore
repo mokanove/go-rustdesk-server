@@ -21,4 +21,5 @@ config-dev.json
 config_dev.json
 /key
 
+# binary
 go-rustdesk-server

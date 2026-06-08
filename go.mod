@@ -1,6 +1,6 @@
 module go-rustdesk-server
 
-go 1.25.0
+go 1.26.4
 
 require (
 	github.com/danbai225/go-logs v0.3.2
