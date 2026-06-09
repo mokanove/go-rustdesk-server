@@ -14,13 +14,10 @@ import (
 func main() {
 	logs.SetLevel(logs.DEBUG)
 	logs.SetWriteLogs(logs.DEBUG | logs.INFO | logs.ERR)
-
 	common.LoadKey()
-
 	go http_server.Always200Server()
 	go server.Start()
 	go relay.Start()
-
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs

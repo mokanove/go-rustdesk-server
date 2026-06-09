@@ -3,7 +3,6 @@ package common
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	logs "github.com/danbai225/go-logs"
 	"github.com/gogf/gf/v2/os/gcache"
 	"github.com/gogf/gf/v2/os/gctx"
@@ -13,6 +12,7 @@ import (
 	"io"
 	"net"
 	"time"
+	"fmt"
 )
 
 var ctx = gctx.New()
@@ -36,14 +36,14 @@ type Addr struct {
 func (a *Addr) GetIP() string   { return a.ip }
 func (a *Addr) GetPort() uint32 { return a.port }
 func (a *Addr) Parsing(addr string) {
-	ip, p := GetHostPort(addr) // 使用修复了 IPv6 的版本
+	ip, p := GetHostPort(addr)
 	a.ip = ip
 	a.port = uint32(p)
 }
 
 func (w *Writer) Type() string { return w._type }
 
-func (w *Writer) Write(p []byte) (n int, err error) {
+func (w *Writer) Write(p []byte) (int, error) {
 	switch w._type {
 	case udp:
 		if w.uConn == nil {
@@ -54,30 +54,27 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 		if w.tConn == nil {
 			return 0, errors.New("tConn==nil")
 		}
-		encoder, err := my_bytes.Encoder(p)
+		enc, err := my_bytes.Encoder(p)
 		if err != nil {
 			return 0, err
 		}
-		return w.tConn.Write(encoder)
+		return w.tConn.Write(enc)
 	}
 	return 0, errors.New("type Err")
 }
 
-func (w *Writer) WriteToAddr(p []byte, addr string) (n int, err error) {
-	switch w._type {
-	case udp:
-		if w.uConn == nil {
-			return 0, errors.New("uConn==nil")
-		}
-		udpAddr, err1 := net.ResolveUDPAddr(udp, addr)
-		if err1 != nil {
-			return 0, err1
-		}
-		return w.uConn.WriteToUDP(p, udpAddr)
-	case tcp:
+func (w *Writer) WriteToAddr(p []byte, addr string) (int, error) {
+	if w._type != udp {
 		return 0, errors.New("unrealized")
 	}
-	return 0, errors.New("type Err")
+	if w.uConn == nil {
+		return 0, errors.New("uConn==nil")
+	}
+	udpAddr, err := net.ResolveUDPAddr(udp, addr)
+	if err != nil {
+		return 0, err
+	}
+	return w.uConn.WriteToUDP(p, udpAddr)
 }
 
 func (w *Writer) GetAddrStr() string {
@@ -91,50 +88,28 @@ func (w *Writer) GetAddrStr() string {
 }
 
 func (w *Writer) GetAddr() *Addr {
-	addr := ""
+	a := &Addr{}
 	switch w._type {
 	case udp:
-		addr = w.addr.String()
+		a.Parsing(w.addr.String())
 	case tcp:
-		addr = w.tConn.RemoteAddr().String()
+		a.Parsing(w.tConn.RemoteAddr().String())
 	}
-	a := &Addr{}
-	a.Parsing(addr)
 	return a
 }
 
 func (w *Writer) SetKey(key string) {
-	mk := ""
-	switch w._type {
-	case udp:
-		mk = udp + key
-	case tcp:
-		mk = tcp + key
-	}
-	_ = cache.Set(ctx, mk, w, cacheTimeOut)
+	_ = cache.Set(ctx, w._type+key, w, cacheTimeOut)
 	w.key = key
 }
 
-func (w *Writer) setAddr(addr string) {
-	mk := ""
-	switch w._type {
-	case udp:
-		mk = udp + addr
-	case tcp:
-		mk = tcp + addr
-	}
-	_ = cache.Set(ctx, mk, w, time.Second*60)
-}
-
 func (w *Writer) remove() {
-	mk := ""
 	switch w._type {
 	case udp:
-		mk = udp + w.addr.String()
+		_, _ = cache.Remove(ctx, udp+w.addr.String())
 	case tcp:
-		mk = tcp + w.tConn.RemoteAddr().String()
+		_, _ = cache.Remove(ctx, tcp+w.tConn.RemoteAddr().String())
 	}
-	_, _ = cache.Remove(ctx, mk)
 	if w.key != "" {
 		_, _ = cache.Remove(ctx, udp+w.key)
 		_, _ = cache.Remove(ctx, tcp+w.key)
@@ -157,12 +132,12 @@ func (w *Writer) SendMsg(message proto.Message) {
 	if message == nil {
 		return
 	}
-	marshal, err := proto.Marshal(message)
+	data, err := proto.Marshal(message)
 	if err != nil {
 		logs.Err(err)
 		return
 	}
-	if _, err = w.Write(marshal); err != nil {
+	if _, err = w.Write(data); err != nil {
 		logs.Err(err)
 	}
 }
@@ -171,12 +146,12 @@ func (w *Writer) SendJsonMsg(message *model_msg.Msg) {
 	if message == nil {
 		return
 	}
-	marshal, err := json.Marshal(message)
+	data, err := json.Marshal(message)
 	if err != nil {
 		logs.Err(err)
 		return
 	}
-	if _, err = w.Write(marshal); err != nil {
+	if _, err = w.Write(data); err != nil {
 		logs.Err(err)
 	}
 }
@@ -188,7 +163,6 @@ func (w *Writer) Close() {
 	w.remove()
 }
 
-// SelfAddr 返回本端监听 IP，用于告知对端 relay 地址。
 func (w *Writer) SelfAddr() string {
 	switch w._type {
 	case udp:
@@ -202,8 +176,7 @@ func (w *Writer) SelfAddr() string {
 }
 
 func GetWriter(key, _type string) (*Writer, error) {
-	mk := fmt.Sprint(_type, key)
-	get, _ := cache.Get(ctx, mk)
+	get, _ := cache.Get(ctx, fmt.Sprint(_type, key))
 	if get != nil {
 		if v, ok := get.Val().(*Writer); ok {
 			return v, nil
@@ -213,16 +186,13 @@ func GetWriter(key, _type string) (*Writer, error) {
 }
 
 func addWriter(key, _type string, w *Writer) {
-	mk := fmt.Sprint(_type, key)
 	t := cacheTimeOut
 	if _type == tcp {
-		t = 0 // TCP 连接不过期，断开时由 Close() 清理
+		t = 0
 	}
-	if err := cache.Set(ctx, mk, w, t); err != nil {
+	if err := cache.Set(ctx, fmt.Sprint(_type, key), w, t); err != nil {
 		logs.Err(err)
 	}
 }
 
-func RemoveWriter(w *Writer) {
-	w.remove()
-}
+func RemoveWriter(w *Writer) { w.remove() }

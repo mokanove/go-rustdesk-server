@@ -1,7 +1,7 @@
 package http_server
 
 import (
-	"fmt"
+	logs "github.com/danbai225/go-logs"
 	"go-rustdesk-server/common"
 	"net/http"
 )
@@ -11,10 +11,10 @@ func Always200Server() {
 		w.Header().Set("Content-Length", "0")
 		w.Header().Del("Content-Type")
 		w.WriteHeader(http.StatusOK)
-		fmt.Printf("[HTTP] %s → 200 OK\n", r.RemoteAddr)
+		logs.Debug("HTTP", r.RemoteAddr, "-> 200")
 	})
-	fmt.Printf("[HTTP] Listening %s\n", common.PortHTTP)
+	logs.Info("HTTP listening", common.PortHTTP)
 	if err := http.ListenAndServe("0.0.0.0"+common.PortHTTP, nil); err != nil {
-		fmt.Printf("[HTTP] Server failed: %v\n", err)
+		logs.Err("HTTP server failed", err)
 	}
 }

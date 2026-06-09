@@ -12,11 +12,6 @@ import (
 	"time"
 )
 
-// ---- TCP 帧格式 ----
-// RustDesk 使用私有变长编码（1~4字节小端头，低2位表示头长度）
-// 与标准 4字节大端不同，不要替换！
-
-// DecodeHead 解析变长帧头，返回 (payload长度, 完整帧总长度, error)。
 func DecodeHead(src []byte) (uint, uint, error) {
 	if src == nil || len(src) == 0 {
 		return 0, 0, errors.New("nil")

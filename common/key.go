@@ -7,40 +7,48 @@ import (
 	"go-rustdesk-server/model/model_proto"
 	"google.golang.org/protobuf/proto"
 	"os"
+	"path/filepath"
 )
 
 var pk []byte
 var pkStr string
 var sk []byte
 
-func genKey() error {
-	key, privateKey, _ := ed25519.GenerateKey(nil)
-	err := os.WriteFile(keyPath, privateKey, os.ModePerm)
+func exeDir() string {
+	exe, err := os.Executable()
 	if err != nil {
+		return "."
+	}
+	return filepath.Dir(exe)
+}
+
+func genKey(dir string) error {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	if err := os.WriteFile(filepath.Join(dir, "id_ed25519"), priv, 0600); err != nil {
 		return err
 	}
-	err = os.WriteFile(keyPath+".pub", key, os.ModePerm)
-	return err
+	return os.WriteFile(filepath.Join(dir, "id_ed25519.pub"), pub, 0644)
 }
 
 func LoadKey() {
-	if !Exists(keyPath) {
-		_ = os.MkdirAll("key", os.ModePerm)
-		err := genKey()
-		if err != nil {
-			logs.Err("gen key err :", err)
+	dir := exeDir()
+	privPath := filepath.Join(dir, "id_ed25519")
+	pubPath := filepath.Join(dir, "id_ed25519.pub")
+	if !Exists(privPath) {
+		if err := genKey(dir); err != nil {
+			logs.Err("gen key err:", err)
 			return
 		}
 	}
 	var err error
-	sk, err = os.ReadFile(keyPath)
+	sk, err = os.ReadFile(privPath)
 	if err != nil {
-		logs.Err("open key err:", err)
+		logs.Err("read key err:", err)
 		return
 	}
-	pk, err = os.ReadFile(keyPath + ".pub")
+	pk, err = os.ReadFile(pubPath)
 	if err != nil {
-		logs.Err("open key err:", err)
+		logs.Err("read key err:", err)
 		return
 	}
 	pkStr = base64.StdEncoding.EncodeToString(pk)
@@ -55,14 +63,8 @@ func GetSignPK(version, id string, peerPK []byte) []byte {
 	if version == "" || id == "" {
 		return []byte{}
 	}
-	logs.Debug(id, peerPK)
-	marshal, _ := proto.Marshal(&model_proto.IdPk{
-		Id: id,
-		Pk: peerPK,
-	})
+	marshal, _ := proto.Marshal(&model_proto.IdPk{Id: id, Pk: peerPK})
 	return Sign(marshal)
 }
 
-func GetPkStr() string {
-	return pkStr
-}
+func GetPkStr() string { return pkStr }
