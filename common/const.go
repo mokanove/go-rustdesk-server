@@ -11,5 +11,5 @@ const (
 	PortSignal = ":21116"
 	PortRelay  = ":21117"
 	PortWS     = ":21118"
-	MustKey = false
+	MustKey = true
 )

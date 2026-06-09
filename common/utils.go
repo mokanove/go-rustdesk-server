@@ -56,7 +56,7 @@ func GetHostPort(addr string) (string, uint64) {
 }
 
 func OutboundIP() string {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
+	conn, err := net.Dial("udp", "8.8.8.8:53")
 	if err != nil {
 		return "127.0.0.1"
 	}

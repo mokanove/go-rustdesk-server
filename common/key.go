@@ -15,43 +15,61 @@ var pkStr string
 var sk []byte
 
 func exeDir() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return "."
-	}
-	return filepath.Dir(exe)
+	dir, err := os.Getwd()
+    if err != nil {
+        return "."
+    }
+    return dir
 }
 
 func genKey(dir string) error {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	if err := os.WriteFile(filepath.Join(dir, "id_ed25519"), priv, 0600); err != nil {
+
+	privText := base64.StdEncoding.EncodeToString(priv)
+	pubText := base64.StdEncoding.EncodeToString(pub)
+
+	if err := os.WriteFile(filepath.Join(dir, "id_ed25519"), []byte(privText), 0600); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "id_ed25519.pub"), pub, 0644)
+	return os.WriteFile(filepath.Join(dir, "id_ed25519.pub"), []byte(pubText), 0644)
 }
 
 func LoadKey() {
 	dir := exeDir()
 	privPath := filepath.Join(dir, "id_ed25519")
 	pubPath := filepath.Join(dir, "id_ed25519.pub")
+
 	if !Exists(privPath) {
 		if err := genKey(dir); err != nil {
 			logs.Err("gen key err:", err)
 			return
 		}
 	}
-	var err error
-	sk, err = os.ReadFile(privPath)
+
+	privText, err := os.ReadFile(privPath)
 	if err != nil {
-		logs.Err("read key err:", err)
+		logs.Err("read priv key err:", err)
 		return
 	}
-	pk, err = os.ReadFile(pubPath)
+	pubText, err := os.ReadFile(pubPath)
 	if err != nil {
-		logs.Err("read key err:", err)
+		logs.Err("read pub key err:", err)
 		return
 	}
-	pkStr = base64.StdEncoding.EncodeToString(pk)
+
+	sk, err = base64.StdEncoding.DecodeString(string(privText))
+	if err != nil {
+		logs.Err("decode priv key err:", err)
+		return
+	}
+
+	pk, err = base64.StdEncoding.DecodeString(string(pubText))
+	if err != nil {
+		logs.Err("decode pub key err:", err)
+		return
+	}
+
+	pkStr = string(pubText)
 	logs.Info("key=", pkStr)
 }
 
