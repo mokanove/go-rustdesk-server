@@ -18,7 +18,7 @@ jobs:
           - extra: "CGO_ENABLED=0"
             nickname: "linux-amd64-musl"
           - extra: "GOARCH=arm64"
-            nickname: "linux-arm64-musl-router"
+            nickname: "linux-arm64-musl"
 
     steps:
       - name: Checkout
