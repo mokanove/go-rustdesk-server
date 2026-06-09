@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-	// DEBUG 级别：所有收包/处理日志都打出来
 	logs.SetLevel(logs.DEBUG)
 	logs.SetWriteLogs(logs.DEBUG | logs.INFO | logs.ERR)
 

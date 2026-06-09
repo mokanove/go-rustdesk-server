@@ -4,6 +4,7 @@ import (
 	"fmt"
 	logs "github.com/danbai225/go-logs"
 	"go-rustdesk-server/my_bytes"
+	"go.uber.org/zap/buffer"
 	"net"
 )
 
@@ -78,52 +79,55 @@ func (m *monitor) accept(conn net.Conn) {
 		}
 	}()
 
-	// 整块读取，直到凑够一个完整帧
-	header := make([]byte, 4)
-	for writer.loop {
-		// 1. 读取 4 字节长度头
-		if _, err := readFull(conn, header); err != nil {
-			fmt.Printf("[TCP] %s header read error: %v\n", conn.RemoteAddr(), err)
-			return
-		}
-		_, totalLen, err := my_bytes.DecodeHead(header)
-		if err != nil {
-			fmt.Printf("[TCP] %s DecodeHead error: %v  header=%x\n", conn.RemoteAddr(), err, header)
-			return
-		}
-		bodyLen := totalLen - 4
-		fmt.Printf("[TCP-RX] %s  bodyLen=%d\n", conn.RemoteAddr(), bodyLen)
+	// 使用 buffer 池积累数据，处理 TCP 粘包/半包
+	buf := buffer.NewPool().Get()
+	realLength := uint(0)
+	temp := make([]byte, 4096)
 
-		// 2. 读取 body
-		body := make([]byte, bodyLen)
-		if _, err := readFull(conn, body); err != nil {
+	for writer.loop {
+		readLen, err := conn.Read(temp)
+		if err != nil {
 			fmt.Printf("[TCP] %s body read error: %v\n", conn.RemoteAddr(), err)
 			return
 		}
-
-		// 3. 拼成完整帧交给 processMessageData（它会再 Decode 去掉头）
-		frame := make([]byte, 4+bodyLen)
-		copy(frame[:4], header)
-		copy(frame[4:], body)
-
-		if m.relay && writer != nil {
-			writer.loop = false
+		if readLen == 0 {
+			continue
 		}
-		go m.processMessageData(frame, conn)
-	}
-}
+		_, _ = buf.Write(temp[:readLen])
 
-// readFull 从 conn 中精确读取 len(buf) 个字节，处理短读。
-func readFull(conn net.Conn, buf []byte) (int, error) {
-	total := 0
-	for total < len(buf) {
-		n, err := conn.Read(buf[total:])
-		total += n
-		if err != nil {
-			return total, err
+		// 尝试解析帧头（只在还不知道帧长度时）
+		if realLength == 0 {
+			_, realLength, err = my_bytes.DecodeHead(buf.Bytes())
+			if err != nil {
+				fmt.Printf("[TCP] %s DecodeHead error: %v  header=%x\n",
+					conn.RemoteAddr(), err, buf.Bytes())
+				return
+			}
+			bodyLen := int(realLength) - int((buf.Bytes()[0]&0x3)+1)
+			fmt.Printf("[TCP-RX] %s  bodyLen=%d\n", conn.RemoteAddr(), bodyLen)
+		}
+
+		// 凑够一个完整帧才处理
+		if buf.Len() >= int(realLength) {
+			cp := make([]byte, realLength)
+			copy(cp, buf.Bytes())
+			// 如果缓冲区里还有下一帧的数据，保留它
+			if buf.Len() != int(realLength) {
+				remaining := make([]byte, buf.Len()-int(realLength))
+				copy(remaining, buf.Bytes()[realLength:])
+				buf.Reset()
+				_, _ = buf.Write(remaining)
+			} else {
+				buf.Reset()
+			}
+			realLength = 0 // 重置，等待下一帧头
+
+			if m.relay && writer != nil {
+				writer.loop = false
+			}
+			go m.processMessageData(cp, conn)
 		}
 	}
-	return total, nil
 }
 
 func (m *monitor) readUdp() {
@@ -161,7 +165,7 @@ func (m *monitor) processMessageData(data []byte, conn net.Conn) {
 	}()
 	payload, err := my_bytes.Decode(data)
 	if err != nil {
-		fmt.Printf("[FRAMING] Decode error from %s: %v  raw=%x\n", conn.RemoteAddr(), err, data[:min(16, len(data))])
+		fmt.Printf("[FRAMING] Decode error from %s: %v\n", conn.RemoteAddr(), err)
 		logs.Err(err)
 		return
 	}
@@ -174,11 +178,4 @@ func (m *monitor) processMessageData(data []byte, conn net.Conn) {
 		addWriter(conn.RemoteAddr().String(), tcp, writer)
 	}
 	m.call(payload, writer)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

@@ -5,6 +5,8 @@ go 1.26.4
 require (
 	github.com/danbai225/go-logs v0.3.2
 	github.com/gogf/gf/v2 v2.10.2
+	github.com/shabbyrobe/go-num v0.0.0-20240907074928-1cd1cac243e1
+	go.uber.org/zap v1.24.0
 	google.golang.org/protobuf v1.36.11
 )
 
