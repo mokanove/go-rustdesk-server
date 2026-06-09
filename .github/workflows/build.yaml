@@ -1,0 +1,78 @@
+name: I've had enough of it, enough of it
+
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sing-box_arch: "amd64"
+            sing-box_branch: "testing"
+            extra: "CGO_ENABLED=1 GOOS=linux GOAMD64=v4"
+            tags: "with_quic with_utls with_acme tfogo_checklinkname0 badlinkname"
+            nickname: "linux-amd64v4-glibc-server"
+          - sing-box_arch: "amd64"
+            sing-box_branch: "testing"
+            extra: "CGO_ENABLED=1 GOOS=linux GOAMD64=v3"
+            tags: "with_quic with_utls with_acme tfogo_checklinkname0 badlinkname"
+            nickname: "linux-amd64v3-glibc-server"
+          - sing-box_arch: "arm64"
+            sing-box_branch: "testing"
+            extra: "GOOS=linux GOARCH=arm64"
+            tags: "with_quic with_utls with_acme with_clash_api with_gvisor badlinkname tfogo_checklinkname0 with_musl"
+            nickname: "linux-arm64-musl-router"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+    
+      - name: List
+        shell: bash
+        run: |
+          sudo apt install tree
+          tree
+          exit 1
+
+      - name: Change branch
+        shell: bash
+        run: |
+          cd sing-box
+          git checkout ${{ matrix.sing-box_branch }}
+          git pull
+          git fetch --tags --force
+
+      - name: Set up Go
+        uses: actions/setup-go@main
+        with:
+          go-version: 'stable'
+        
+      - name: Patch Makefile
+        shell: bash
+        run: |
+          cd sing-box
+          sed -i 's/GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) go run/GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOAMD64= go run/' Makefile
+          
+      - name: Build!
+        shell: bash
+        run: |
+          cd sing-box
+          VERSION=$(go run github.com/sagernet/sing-box/cmd/internal/read_tag@latest)
+          ${{ matrix.extra }} TAGS="${{ matrix.tags }}" VERSION="$VERSION" make -j$(nproc)
+          mv sing-box* "sing-box-${{ matrix.sing-box_branch}}-${{ matrix.nickname }}"
+
+      - name: Release
+        uses: softprops/action-gh-release@master
+        with:
+          tag_name: sing-box
+          files: sing-box/sing-box-${{ matrix.sing-box_branch}}-${{ matrix.nickname }}
+          body: |
+            # This release created by GitHub Actions
+            - Make sing-box with some tags i need
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
