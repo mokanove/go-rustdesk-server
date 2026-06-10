@@ -38,11 +38,10 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@master
         with:
-          tag_name: V2.0.4
+          tag_name: V2.0.5
           files: go-rustdesk-server*
           body: |
             # 📝 Release Notes
-            - The version number has been finalized and will begin with V2.0.0.
-            - Fixed the garbled character issue in the id_ed25519.pub file.
+            - Rewrote the code.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

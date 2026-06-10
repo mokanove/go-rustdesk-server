@@ -1,24 +1,24 @@
 package main
 
 import (
-	logs "github.com/danbai225/go-logs"
-	"go-rustdesk-server/common"
-	"go-rustdesk-server/http_server"
-	"go-rustdesk-server/relay"
-	"go-rustdesk-server/server"
 	"os"
-	"os/signal"
-	"syscall"
+	"fmt"
+	"go-rustdesk-server/cmd"
 )
 
 func main() {
-	logs.SetLevel(logs.DEBUG)
-	logs.SetWriteLogs(logs.DEBUG | logs.INFO | logs.ERR)
-	common.LoadKey()
-	go http_server.Always200Server()
-	go server.Start()
-	go relay.Start()
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
+    if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "version":
+			cmd.PrintVersion()
+			return
+		case "help":
+			cmd.PrintVersion()
+			return
+		default:
+			fmt.Printf("Unknow Command.\n")
+			fmt.Printf("Using: ./go-rustdesk-server help for usage.\n")
+			os.Exit(1)
+		}
+	}
 }
