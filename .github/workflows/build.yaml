@@ -1,7 +1,7 @@
 name: I've had enough of it, enough of it
 
 on:
-  push:
+  #push:
   workflow_dispatch:
 permissions:
   contents: write
