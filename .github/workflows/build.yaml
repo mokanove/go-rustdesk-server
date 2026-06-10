@@ -1,7 +1,7 @@
 name: I've had enough of it, enough of it
 
 on:
-  #push:
+  push:
   workflow_dispatch:
 permissions:
   contents: write
@@ -19,6 +19,10 @@ jobs:
             nickname: "linux-amd64-musl"
           - extra: "GOARCH=arm64"
             nickname: "linux-arm64-musl"
+          - extra: "GOOS=darwin GOARCH=arm64"
+            nickname: "darwin-arm64"
+          - extra: "GOOS=windows GOARCH=amd64"
+            nickname: "windows-amd64"
 
     steps:
       - name: Checkout
@@ -44,5 +48,6 @@ jobs:
             # 📝 Release Notes
             - Log reworted
             - I love Claude, It actully is a gineus!
+            - Added macOS(arm64), Windows(amd64)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
