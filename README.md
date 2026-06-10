@@ -23,7 +23,7 @@ Forked from：<https://github.com/danbai225/go-rustdesk-server>
 ```
 go build
 ```
-> Yes , so simple!
+> Yes , so simple! But you need Golang Version 1.26.4 or later.
 >
 > This is the biggest reason why I rewrote it in Go.
 ## ⚖️ License
