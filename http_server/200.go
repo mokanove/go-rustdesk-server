@@ -1,7 +1,6 @@
 package http_server
 
 import (
-	"go-rustdesk-server/common"
 	"net/http"
 )
 
@@ -11,6 +10,6 @@ func Always200Server() {
 		w.Header().Del("Content-Type")
 		w.WriteHeader(http.StatusOK)
 	})
-	if err := http.ListenAndServe("0.0.0.0"+common.PortHTTP, nil); err != nil {
+	if err := http.ListenAndServe(":21114", nil); err != nil {
 	}
 }

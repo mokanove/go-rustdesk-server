@@ -38,10 +38,10 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@master
         with:
-          tag_name: V2.0.5
+          tag_name: V2.0.6
           files: go-rustdesk-server*
           body: |
             # 📝 Release Notes
-            - Refactor the program logic.
+            - Some bug fixed
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
