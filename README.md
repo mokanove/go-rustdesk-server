@@ -1,32 +1,69 @@
 # go-rustdesk-server
-Forked from：<https://github.com/danbai225/go-rustdesk-server>
-## ⬇️ Downloads
-[GitHub Release](https://github.com/mokanove/go-rustdesk-server/releases)
-## 🚀 Features
-- **Designed to cure the high blood pressure and heart attacks caused by compiling the original RustDesk Server.**
-- Completely stripped of Docker support, api_server, and WebUI.
-- **Functions as a pure, lightweight RustDesk Server.**
-## ⚠️ Warning
-> You must ensure that both TCP and UDP ports between 21114 and 21119 are open; otherwise, the server will not function properly.
->
-> Since this project does not require a WebUI, port 21114 hosts a fake WebServer that always responds 200 OK to prevent client errors.
-## 🧰 How to use
-```
+Forked from [danbai225/go-rustdesk-server](https://github.com/danbai225/go-rustdesk-server).
+> A lightweight, no-frills RustDesk server — up and running before your blood pressure has a chance to rise.
+
+## ⬇️ Download
+[GitHub Releases](https://github.com/mokanove/go-rustdesk-server/releases)
+
+## ✨ Features
+
+- 🩺 **Designed to cure the high blood pressure caused by compiling the original RustDesk Server**
+- 🚫 Docker support, api_server, and WebUI have been completely removed
+- ⚡ Pure, lightweight, and ready to run out of the box
+- 📦 OpenWrt support included (rsop project merged)
+
+## ⚠️ Before You Start
+
+- **TCP and UDP ports 21114–21119 must all be open**, or the server will not work correctly.
+- Since this project has no WebUI, port `21114` hosts a stub WebServer that always returns `200 OK` to prevent client-side errors.
+- **OpenWrt users**: only `aarch64` and `amd64` CPU architectures are supported. Requires OpenWrt **25.12 or later** (apk package manager).
+
+## 🚀 Quick Start
+
+```bash
 ./go-rustdesk-server
 ```
-> Yes, it's that simple!
->
-> If there are no problems, he should start listening on TCP and UDP ports between 21114 and 21119.
->
-> Then you can fill in the information just like you would when configuring a normal rustdesk-server.
-## 🛠 How to self-build
-```
+
+That's it. The server will start listening on TCP/UDP ports **21114–21119**.  
+Configure your RustDesk client just as you would with a standard rustdesk-server setup.
+
+## 🛠 OpenWrt Usage (rsop)
+
+### Service Management
+> Auto-start is usually enabled by default. If the service doesn't start automatically, run the `enable` command manually.
+
+| Action | Command |
+|--------|---------|
+| Start | `/etc/init.d/rsop start` |
+| Restart | `/etc/init.d/rsop restart` |
+| Check status | `/etc/init.d/rsop status` |
+| Enable on boot | `/etc/init.d/rsop enable` |
+| Show Key | `cat /etc/rustdesk/id_ed25519.pub` |
+| Doctor(check service) | `/etc/rustdesk/go-rustdesk-server doctor [IP/Domain]` |
+
+
+## 🔨 Building from Source
+
+### Binary
+
+```bash
 go build
 ```
-> Yes , so simple! But you need Golang Version 1.26.4 or later.
->
-> This is the biggest reason why I rewrote it in Go.
+
+### OpenWrt Package
+
+> Full documentation: [Generic Document](https://867678.xyz/doc/build)
+
+From the SDK root directory, run these additional steps before building:
+
+> Replace `⚠️ARCH` and `⚠️LIBC` with the architecture and libc type of your target platform.
+```bash
+cd ⚠️sdk-root/package/rsop/root/etc/rustdesk
+rm DONOTREMOVE
+wget "https://github.com/mokanove/go-rustdesk-server/releases/latest/download/go-rustdesk-server-linux-⚠️ARCH-⚠️LIBC"
+```
+
 ## ⚖️ License
-> This project is licensed under the **[MoPL](https://github.com/mokanove/mokanove/blob/main/docs/license.md)**
+> This project is licensed under **[MoPL](https://github.com/mokanove/mokanove/blob/main/docs/license.md)**.
 >
-> The original project uses MIT, so it can be replaced with MoPL.
+> We copied: Rustdesk Server. It is licensed under the GNU AGPL Version 3 <https://www.gnu.org/licenses/agpl-3.0.html>.

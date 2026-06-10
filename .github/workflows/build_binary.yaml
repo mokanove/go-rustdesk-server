@@ -1,7 +1,6 @@
 name: I've had enough of it, enough of it
 
 on:
-  push:
   workflow_dispatch:
 permissions:
   contents: write
@@ -42,12 +41,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@master
         with:
-          tag_name: V2.0.8
+          tag_name: V2.0.9
           files: go-rustdesk-server*
-          body: |
-            # 📝 Release Notes
-            - Log reworted
-            - I love Claude, It actully is a gineus!
-            - Added macOS(arm64), Windows(amd64)
+          body:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
