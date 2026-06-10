@@ -22,7 +22,7 @@ jobs:
           - extra: "GOOS=darwin GOARCH=arm64"
             nickname: "darwin-arm64"
           - extra: "GOOS=windows GOARCH=amd64"
-            nickname: "windows-amd64"
+            nickname: "windows-amd64.exe"
 
     steps:
       - name: Checkout
@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           ${{ matrix.extra }} go build
-          mv go-rustdesk-server "go-rustdesk-server-${{ matrix.nickname }}"
+          mv go-rustdesk-server* "go-rustdesk-server-${{ matrix.nickname }}"
 
       - name: Release
         uses: softprops/action-gh-release@master
