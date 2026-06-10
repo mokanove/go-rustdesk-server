@@ -3,7 +3,7 @@ package common
 import (
 	"encoding/json"
 	"errors"
-	logs "github.com/danbai225/go-logs"
+	"go-rustdesk-server/cmd"
 	"github.com/gogf/gf/v2/os/gcache"
 	"github.com/gogf/gf/v2/os/gctx"
 	"go-rustdesk-server/model/model_msg"
@@ -134,11 +134,11 @@ func (w *Writer) SendMsg(message proto.Message) {
 	}
 	data, err := proto.Marshal(message)
 	if err != nil {
-		logs.Err(err)
+		cmd.Info("%v", err)
 		return
 	}
 	if _, err = w.Write(data); err != nil {
-		logs.Err(err)
+		cmd.Info("%v", err)
 	}
 }
 
@@ -148,11 +148,11 @@ func (w *Writer) SendJsonMsg(message *model_msg.Msg) {
 	}
 	data, err := json.Marshal(message)
 	if err != nil {
-		logs.Err(err)
+		cmd.Info("%v", err)
 		return
 	}
 	if _, err = w.Write(data); err != nil {
-		logs.Err(err)
+		cmd.Info("%v", err)
 	}
 }
 
@@ -191,7 +191,7 @@ func addWriter(key, _type string, w *Writer) {
 		t = 0
 	}
 	if err := cache.Set(ctx, fmt.Sprint(_type, key), w, t); err != nil {
-		logs.Err(err)
+		cmd.Info("%v", err)
 	}
 }
 

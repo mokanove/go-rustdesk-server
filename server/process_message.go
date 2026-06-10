@@ -1,7 +1,7 @@
 package server
 
 import (
-	logs "github.com/danbai225/go-logs"
+	"go-rustdesk-server/cmd"
 	"go-rustdesk-server/common"
 	"go-rustdesk-server/model"
 	"go-rustdesk-server/model/model_proto"
@@ -142,7 +142,7 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 	isLan := common.InSubnet(writer.GetAddr().GetIP())
 	natType := message.GetNatType()
 	relay := getRelay()
-	logs.Debug("peerIsLan", peerIsLan, "isLan", isLan)
+	cmd.Info("peerIsLan %v isLan %v", peerIsLan, isLan)
 	if peerIsLan != isLan {
 		if peerIsLan {
 			relay = writer.SelfAddr()
@@ -150,7 +150,7 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 		natType = model_proto.NatType_SYMMETRIC
 	}
 	sameIntranet := writer.GetAddr().GetIP() == peer.IP
-	logs.Debug("sameIntranet", sameIntranet, natType)
+	cmd.Info("sameIntranet %v natType %v", sameIntranet, natType)
 	if sameIntranet {
 		getPeer.SendMsg(model_proto.NewRendezvousMessage(&model_proto.FetchLocalAddr{
 			SocketAddr: my_bytes.EncodeAddr(writer.GetAddrStr()), RelayServer: relay,
@@ -256,7 +256,7 @@ func RendezvousMessagePunchHoleSent(message *model_proto.PunchHoleSent, writer *
 }
 
 func RendezvousMessageConfigureUpdate(message *model_proto.ConfigUpdate) {
-	logs.Debug("ConfigureUpdate serial", message.Serial)
+	cmd.Info("ConfigureUpdate serial %v", message.Serial)
 }
 
 func RendezvousMessageOnlineRequest(message *model_proto.OnlineRequest) *model_proto.OnlineResponse {

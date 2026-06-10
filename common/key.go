@@ -3,7 +3,7 @@ package common
 import (
 	"crypto/ed25519"
 	"encoding/base64"
-	logs "github.com/danbai225/go-logs"
+	"go-rustdesk-server/cmd"
 	"go-rustdesk-server/model/model_proto"
 	"google.golang.org/protobuf/proto"
 	"os"
@@ -15,11 +15,11 @@ var pkStr string
 var sk []byte
 
 func exeDir() string {
-	dir, err := os.Getwd()
-    if err != nil {
-        return "."
-    }
-    return dir
+	exe, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return filepath.Dir(exe)
 }
 
 func genKey(dir string) error {
@@ -41,36 +41,36 @@ func LoadKey() {
 
 	if !Exists(privPath) {
 		if err := genKey(dir); err != nil {
-			logs.Err("gen key err:", err)
+			cmd.Fatal("gen key err:", err)
 			return
 		}
 	}
 
 	privText, err := os.ReadFile(privPath)
 	if err != nil {
-		logs.Err("read priv key err:", err)
+		cmd.Fatal("read priv key err:", err)
 		return
 	}
 	pubText, err := os.ReadFile(pubPath)
 	if err != nil {
-		logs.Err("read pub key err:", err)
+		cmd.Fatal("read pub key err:", err)
 		return
 	}
 
 	sk, err = base64.StdEncoding.DecodeString(string(privText))
 	if err != nil {
-		logs.Err("decode priv key err:", err)
+		cmd.Fatal("decode priv key err:", err)
 		return
 	}
 
 	pk, err = base64.StdEncoding.DecodeString(string(pubText))
 	if err != nil {
-		logs.Err("decode pub key err:", err)
+		cmd.Fatal("decode pub key err:", err)
 		return
 	}
 
 	pkStr = string(pubText)
-	logs.Info("key=", pkStr)
+	cmd.Info("key= %s", pkStr)
 }
 
 func Sign(data []byte) []byte {

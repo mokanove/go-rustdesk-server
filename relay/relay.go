@@ -1,7 +1,7 @@
 package relay
 
 import (
-	logs "github.com/danbai225/go-logs"
+	"go-rustdesk-server/cmd"
 	"go-rustdesk-server/common"
 	"go-rustdesk-server/model/model_proto"
 	"go-rustdesk-server/my_bytes"
@@ -10,12 +10,12 @@ import (
 )
 
 func Start() {
-	logs.Info("Relay TCP listening", common.PortRelay)
+	cmd.Info("Relay TCP listening %s", common.PortRelay)
 	common.NewMonitor(true, "tcp", "0.0.0.0"+common.PortRelay, handlerMsg).Start()
 }
 
 func handlerMsg(msg []byte, writer *common.Writer) {
-	logs.Debug("RELAY-RX", writer.GetAddrStr(), "len", len(msg))
+	cmd.Info("RELAY-RX %s len %d", writer.GetAddrStr(), len(msg))
 	if blacklistDetection(writer.GetAddr()) {
 		writer.Close()
 		return
@@ -23,12 +23,12 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 	message := model_proto.RendezvousMessage{}
 	if err := proto.Unmarshal(msg, &message); err != nil || message.Union == nil {
 		if err != nil {
-			logs.Err("RELAY unmarshal", err)
+			cmd.Fatal("RELAY unmarshal", err)
 		}
 		return
 	}
 	msgType := reflect.TypeOf(message.Union).String()
-	logs.Debug("RELAY-RX type", msgType, "from", writer.GetAddrStr())
+	cmd.Info("RELAY-RX type %s from %s", msgType, writer.GetAddrStr())
 	switch msgType {
 	case model_proto.TypeRendezvousMessageRequestRelay:
 		rr := message.GetRequestRelay()
@@ -36,26 +36,26 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 			return
 		}
 		if common.MustKey && rr.LicenceKey != common.GetPkStr() {
-			logs.Debug("RELAY key mismatch from", writer.GetAddrStr())
+			cmd.Info("RELAY key mismatch from %s", writer.GetAddrStr())
 			return
 		}
 		uuid := rr.GetUuid()
-		logs.Debug("RELAY uuid", uuid, "from", writer.GetAddrStr(), my_bytes.DecodeAddr(rr.SocketAddr))
+		cmd.Info("RELAY uuid %s from %s %s", uuid, writer.GetAddrStr(), my_bytes.DecodeAddr(rr.SocketAddr))
 		if uuid == "" {
 			return
 		}
 		w, err := common.GetWriter(uuid, common.TCP)
 		if err != nil {
-			logs.Debug("RELAY waiting for peer", uuid)
+			cmd.Info("RELAY waiting for peer %s", uuid)
 			writer.SetKey(uuid)
 		} else {
-			logs.Debug("RELAY pairing", writer.GetAddrStr(), "<->", w.GetAddrStr())
+			cmd.Info("RELAY pairing %s <-> %s", writer.GetAddrStr(), w.GetAddrStr())
 			common.RemoveWriter(writer)
 			common.RemoveWriter(w)
 			go writer.Copy(w)
 		}
 	default:
-		logs.Debug("RELAY unknown type", msgType)
+		cmd.Info("RELAY unknown type %s", msgType)
 	}
 }
 

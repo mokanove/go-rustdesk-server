@@ -1,7 +1,7 @@
 package common
 
 import (
-	logs "github.com/danbai225/go-logs"
+	"go-rustdesk-server/cmd"
 	"go-rustdesk-server/my_bytes"
 	"go.uber.org/zap/buffer"
 	"net"
@@ -33,29 +33,29 @@ func (m *monitor) Start() {
 	if m.network == udp {
 		addr, err1 := net.ResolveUDPAddr(m.network, m.addr)
 		if err1 != nil {
-			logs.Err(err1)
+			cmd.Fatal("%v", err1)
 			return
 		}
 		m.conn, err = net.ListenUDP(m.network, addr)
 		if err != nil {
-			logs.Err("UDP listen", m.addr, err)
+			cmd.Fatal("UDP listen %s: %v", m.addr, err)
 			return
 		}
-		logs.Info("UDP listening", m.addr)
+		cmd.Info("UDP listening %s", m.addr)
 		m.readUdp()
 	} else {
 		m.listen, err = net.Listen(m.network, m.addr)
 		if err != nil {
-			logs.Err("TCP listen", m.addr, err)
+			cmd.Fatal("TCP listen %s: %v", m.addr, err)
 			return
 		}
-		logs.Info("TCP listening", m.addr)
+		cmd.Info("TCP listening %s", m.addr)
 		for {
 			conn, err2 := m.listen.Accept()
 			if err2 != nil {
-				logs.Err(err2)
+				cmd.Fatal("%v", err2)
 			} else {
-				logs.Debug("CONNECT TCP", conn.RemoteAddr())
+				cmd.Info("CONNECT TCP %s", conn.RemoteAddr())
 				go m.accept(conn)
 			}
 		}
@@ -66,7 +66,7 @@ func (m *monitor) accept(conn net.Conn) {
 	writer := &Writer{_type: tcp, tConn: conn, loop: true}
 	addWriter(conn.RemoteAddr().String(), tcp, writer)
 	defer func() {
-		logs.Debug("DISCONNECT TCP", conn.RemoteAddr())
+		cmd.Info("DISCONNECT TCP %s", conn.RemoteAddr())
 		if writer != nil && writer.loop {
 			writer.Close()
 		}
@@ -77,7 +77,7 @@ func (m *monitor) accept(conn net.Conn) {
 	for writer.loop {
 		n, err := conn.Read(temp)
 		if err != nil {
-			logs.Debug("TCP read", conn.RemoteAddr(), err)
+			cmd.Info("TCP read %s: %v", conn.RemoteAddr(), err)
 			return
 		}
 		if n == 0 {
@@ -87,10 +87,10 @@ func (m *monitor) accept(conn net.Conn) {
 		if realLength == 0 {
 			_, realLength, err = my_bytes.DecodeHead(buf.Bytes())
 			if err != nil {
-				logs.Err("DecodeHead", conn.RemoteAddr(), err)
+				cmd.Fatal("DecodeHead %s: %v", conn.RemoteAddr(), err)
 				return
 			}
-			logs.Debug("TCP-RX", conn.RemoteAddr(), "bodyLen", int(realLength)-int((buf.Bytes()[0]&0x3)+1))
+			cmd.Info("TCP-RX %s bodyLen %d", conn.RemoteAddr(), int(realLength)-int((buf.Bytes()[0]&0x3)+1))
 		}
 		if buf.Len() >= int(realLength) {
 			cp := make([]byte, realLength)
@@ -117,13 +117,13 @@ func (m *monitor) readUdp() {
 	for {
 		n, addr, err := m.conn.ReadFromUDP(temp)
 		if err != nil {
-			logs.Err("UDP read", err)
+			cmd.Fatal("UDP read: %v", err)
 			return
 		}
 		if n == 0 {
 			continue
 		}
-		logs.Debug("UDP-RX", addr, "len", n)
+		cmd.Info("UDP-RX %s len %d", addr, n)
 		payload := make([]byte, n)
 		copy(payload, temp[:n])
 		writer, err := GetWriter(addr.String(), udp)
@@ -138,12 +138,12 @@ func (m *monitor) readUdp() {
 func (m *monitor) processMessageData(data []byte, conn net.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
-			logs.Err(r)
+			cmd.Fatal("%v", r)
 		}
 	}()
 	payload, err := my_bytes.Decode(data)
 	if err != nil {
-		logs.Err("Decode", conn.RemoteAddr(), err)
+		cmd.Fatal("Decode %s: %v", conn.RemoteAddr(), err)
 		return
 	}
 	writer, err := GetWriter(conn.RemoteAddr().String(), tcp)

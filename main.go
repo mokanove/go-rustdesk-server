@@ -29,7 +29,7 @@ func main() {
 		}
 	}
 	cmd.Log()
-    http_server.Always200Server()
+    go http_server.Always200Server()
 	common.LoadKey()
 	server.Start()
 	relay.Start()

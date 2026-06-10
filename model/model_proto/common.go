@@ -1,7 +1,7 @@
 package model_proto
 
 import (
-	logs "github.com/danbai225/go-logs"
+	"go-rustdesk-server/cmd"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"reflect"
 	"strings"
@@ -12,7 +12,7 @@ func NewRendezvousMessage(msg protoreflect.ProtoMessage) *RendezvousMessage {
 	ts := strings.ReplaceAll(strings.ReplaceAll(typeR.String(), "*", ""), "model_proto.", "")
 	typeR2 := getTypeByName("RendezvousMessage_" + ts)
 	if typeR2 == nil {
-		logs.Err("not find type ", "RendezvousMessage_"+ts)
+		cmd.Fatal("not find type ", "RendezvousMessage_"+ts)
 		return nil
 	}
 	newMsg := reflect.New(typeR2)

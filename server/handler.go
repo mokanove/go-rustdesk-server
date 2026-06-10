@@ -1,7 +1,7 @@
 package server
 
 import (
-	logs "github.com/danbai225/go-logs"
+	"go-rustdesk-server/cmd"
 	"go-rustdesk-server/common"
 	"go-rustdesk-server/model/model_proto"
 	"google.golang.org/protobuf/proto"
@@ -37,21 +37,21 @@ func getMsgForm(id string, types []string, timeOut uint) (*common.Writer, interf
 }
 
 func handlerMsg(msg []byte, writer *common.Writer) {
-	logs.Debug("RX", writer.Type(), writer.GetAddrStr(), "len", len(msg))
+	cmd.Info("RX %s %s len %d", writer.Type(), writer.GetAddrStr(), len(msg))
 	message := model_proto.RendezvousMessage{}
 	if err := proto.Unmarshal(msg, &message); err != nil {
-		logs.Err("unmarshal", err)
+		cmd.Fatal("unmarshal", err)
 		return
 	}
 	if message.Union == nil {
-		logs.Debug("empty Union from", writer.GetAddrStr())
+		cmd.Info("empty Union from %s", writer.GetAddrStr())
 		return
 	}
 	if blacklistDetection("", writer.GetAddr()) {
 		return
 	}
 	msgType := reflect.TypeOf(message.Union).String()
-	logs.Debug("RX type", msgType, "from", writer.Type(), writer.GetAddrStr())
+	cmd.Info("RX type %s from %s %s", msgType, writer.Type(), writer.GetAddrStr())
 	var response proto.Message
 	switch msgType {
 	case model_proto.TypeRendezvousMessagePunchHoleRequest:
@@ -100,10 +100,10 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 			response = model_proto.NewRendezvousMessage(RendezvousMessageOnlineRequest(req))
 		}
 	default:
-		logs.Debug("RX unknown type", msgType)
+		cmd.Info("RX unknown type %s", msgType)
 	}
 	if response != nil {
-		logs.Debug("TX response to", writer.Type(), writer.GetAddrStr())
+		cmd.Info("TX response to %s %s", writer.Type(), writer.GetAddrStr())
 		writer.SendMsg(response)
 	}
 }
