@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   build:
-    name: Build
+    name: Build for ${{ matrix.nickname }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,6 +42,6 @@ jobs:
           files: go-rustdesk-server*
           body: |
             # 📝 Release Notes
-            - Rewrote the code.
+            - Refactor the program logic.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
