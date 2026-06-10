@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 )
 
-const Version = "V2.0.6"
+const Version = "V2.0.7"
 
 func PrintVersion() {
 	fmt.Printf("Go-RustDesk-Server %s\n\n", Version)

@@ -22,5 +22,6 @@ func main() {
 			os.Exit(0)
 		}
 	}
+	cmd.Log()
     http_server.Always200Server()
 }
