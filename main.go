@@ -1,17 +1,17 @@
 package main
 
 import (
-	"os"
 	"fmt"
 	"go-rustdesk-server/cmd"
-	"go-rustdesk-server/http_server"
 	"go-rustdesk-server/common"
+	"go-rustdesk-server/http_server"
 	"go-rustdesk-server/relay"
 	"go-rustdesk-server/server"
+	"os"
 )
 
 func main() {
-    if len(os.Args) > 1 {
+	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "version":
 			cmd.PrintVersion()
@@ -23,14 +23,19 @@ func main() {
 			cmd.PrintHelp()
 			os.Exit(0)
 		default:
-			fmt.Printf("Unknow Command\n")
+			fmt.Printf("Unknown Command\n")
 			fmt.Printf("Using: ./go-rustdesk-server help for usage.\n")
 			os.Exit(0)
 		}
 	}
+
 	cmd.Log()
-    go http_server.Always200Server()
+	go http_server.Always200Server()
 	common.LoadKey()
-	server.Start()
-	relay.Start()
+	go server.Start()
+	go relay.Start()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
 }

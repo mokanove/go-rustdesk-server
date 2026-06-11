@@ -107,6 +107,7 @@ jobs:
 
           cp $GITHUB_WORKSPACE/go-rustdesk-server-${{ matrix.nickname }} ${{ matrix.sdk_name }}/package/rsop/root/etc/rustdesk/go-rustdesk-server
           chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/rustdesk/go-rustdesk-server
+          chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/init.d/rsop
 
       - name: Build!
         if: matrix.op == 'yes'
@@ -130,13 +131,16 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - rsop and go-rustdesk-server have now been merged into one project!
+            - Help documentation added
+            - The issue of insufficient permissions for /etc/init.d/rsop has been fixed.
+            - Minor performance optimizations.
+            - The Relay blocking issue has been fixed.
             # ⚠️ WARNING:
-            > If you are upgrading this version from rdks or a version lower than rsop V0.3.3.
+            > If you are upgrading this version from rdks or a version lower than rsop V2.0.9.
             >
             > Please execute the following command before installing this version:
             ```
-            rm -rf /etc/rustdesk
+            rm -rf /etc/rustdesk /etc/init.d/rsop
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
