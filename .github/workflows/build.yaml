@@ -70,49 +70,45 @@ jobs:
         shell: bash
         run: |
           mkdir -p ${{ matrix.sdk_name }}/package/rsop
+          mkdir -p ${{ matrix.sdk_name }}/package/rsop/root/etc/init.d
+          mkdir -p ${{ matrix.sdk_name }}/package/rsop/root/etc/rustdesk
           cd ${{ matrix.sdk_name }}/package/rsop
 
-          cat << 'EOF' | envsubst > ./Makefile
-          include $(TOPDIR)/rules.mk
-          PKG_NAME:=rsop
-          PKG_VERSION:=${PKG_VERSION}
-          PKG_RELEASE:=1
-          PKG_LICENSE:=MoPL
-          LUCI_TITLE:=Rustdesk Server(Golang implementation) for OpenWrt
-          LUCI_PKGARCH:=${PKG_ARCH}
-          include $(TOPDIR)/feeds/luci/luci.mk
-          # call BuildPackage - OpenWrt buildroot signature
-          EOF
+          cat << 'EOF' | envsubst > "$SDK_PKG/Makefile"
+include $(TOPDIR)/rules.mk
+PKG_NAME:=rsop
+PKG_VERSION:=${PKG_VERSION}
+PKG_RELEASE:=1
+PKG_LICENSE:=MoPL
+LUCI_TITLE:=Rustdesk Server(Golang implementation) for OpenWrt
+LUCI_PKGARCH:=${PKG_ARCH}
+include $(TOPDIR)/feeds/luci/luci.mk
+# call BuildPackage - OpenWrt buildroot signature
+EOF
 
-          mkdir ./root/etc/init.d
-          cat <<'EOF'> ./root/etc/init.d/rsop
-          #!/bin/sh /etc/rc.common
+          cat << 'EOF' > "$SDK_PKG/root/etc/init.d/rsop"
+#!/bin/sh /etc/rc.common
+START=99
+STOP=10
+USE_PROCD=1
+DATA_DIR="/etc/rustdesk"
+GORS_BIN="/etc/rustdesk/go-rustdesk-server"
+start_service() {
+    procd_open_instance "go-rustdesk-server"
+    procd_set_param command sh -c "cd '$DATA_DIR' && exec '$GORS_BIN'"
+    procd_set_param respawn 3600 3 3
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_set_param env RUST_LOG=debug
+    procd_close_instance
+}
+service_triggers() {
+    procd_add_reload_trigger "rsop"
+}
+EOF
 
-          START=99
-          STOP=10
-          USE_PROCD=1
-
-          DATA_DIR="/etc/rustdesk"
-          GORS_BIN="/etc/rustdesk/go-rustdesk-server"
-
-          start_service() {
-              procd_open_instance "go-rustdesk-server"
-              procd_set_param command sh -c "cd '$DATA_DIR' && exec '$GORS_BIN'"
-              procd_set_param respawn 3600 3 3
-              procd_set_param stdout 1
-              procd_set_param stderr 1
-              procd_set_param env RUST_LOG=debug
-              procd_close_instance
-          }
-
-          service_triggers() {
-              procd_add_reload_trigger "rsop"
-          }
-          EOF
-
-          mkdir ./root/etc/rustdesk
-          cp $GITHUB_WORKSPACE/go-rustdesk-server-${{ matrix.nickname }} ./root/etc/rustdesk/go-rustdesk-server
-          chmod +x ./root/etc/rustdesk/go-rustdesk-server
+          cp $GITHUB_WORKSPACE/go-rustdesk-server-${{ matrix.nickname }} ${{ matrix.sdk_name }}/package/rsop/root/etc/rustdesk/go-rustdesk-server
+          chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/rustdesk/go-rustdesk-server
 
       - name: Build!
         if: matrix.op == 'yes'

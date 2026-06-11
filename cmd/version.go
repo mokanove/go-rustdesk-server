@@ -5,10 +5,10 @@ import (
 	"runtime/debug"
 )
 
-const Version = "V2.0.9"
+const Version = "2.0.9"
 
 func PrintVersion() {
-	fmt.Printf("Go-RustDesk-Server %s\n\n", Version)
+	fmt.Printf("Go-RustDesk-Server V%s\n\n", Version)
 	info, _ := debug.ReadBuildInfo()
 	settings := make(map[string]string)
 	for _, s := range info.Settings {
