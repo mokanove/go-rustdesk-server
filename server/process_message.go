@@ -18,7 +18,7 @@ var (
 )
 
 var relayAddr = func() string {
-	return common.OutboundIP() + ":21117"
+    return  common.OutboundIP() + ":21117"
 }()
 
 func blacklistDetection(_ string, _ *common.Addr) bool { return false }
@@ -52,8 +52,9 @@ func RendezvousMessageRegisterPeer(message *model_proto.RegisterPeer, writer *co
 
 func RendezvousMessageRegisterPk(message *model_proto.RegisterPk, writer *common.Writer) *model_proto.RegisterPkResponse {
 	res := &model_proto.RegisterPkResponse{Result: model_proto.RegisterPkResponse_SERVER_ERROR}
-	if len(message.GetId()) < common.MinKeyLen {
+	if len(message.GetId()) < 6 {
 		res.Result = model_proto.RegisterPkResponse_UUID_MISMATCH
+		cmd.Info("RegisterPk id=%s too short len=%d", message.GetId(), len(message.GetId()))
 		return res
 	}
 	change := false
@@ -112,6 +113,7 @@ func RendezvousMessageRegisterPk(message *model_proto.RegisterPk, writer *common
 		res.Result = model_proto.RegisterPkResponse_OK
 		writer.SetKey(message.GetId())
 	}
+	cmd.Info("RegisterPk id=%s result=%v change=%v", message.GetId(), res.Result, change)
 	return res
 }
 
@@ -121,10 +123,6 @@ func RendezvousMessageSoftwareUpdate(_ *model_proto.SoftwareUpdate) *model_proto
 
 func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, writer *common.Writer) protoreflect.ProtoMessage {
 	res := &model_proto.PunchHoleResponse{}
-	if common.MustKey && message.LicenceKey != common.GetPkStr() {
-		res.Failure = model_proto.PunchHoleResponse_LICENSE_MISMATCH
-		return res
-	}
 	var peer *model.Peer
 	if val, ok := memoryPeerMap.Load(message.Id); ok {
 		peer = val.(*model.Peer)
@@ -151,6 +149,7 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 	}
 	sameIntranet := writer.GetAddr().GetIP() == peer.IP
 	cmd.Info("sameIntranet %v natType %v", sameIntranet, natType)
+	cmd.Info("relay addr: %s", relay)
 	if sameIntranet {
 		getPeer.SendMsg(model_proto.NewRendezvousMessage(&model_proto.FetchLocalAddr{
 			SocketAddr: my_bytes.EncodeAddr(writer.GetAddrStr()), RelayServer: relay,
@@ -179,11 +178,12 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 			return res
 		}
 		if m, ok := lMsg.(*model_proto.PunchHoleSent); ok {
-			res.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
-			res.RelayServer = m.GetRelayServer()
-			res.Pk = common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)
-			res.Union = &model_proto.PunchHoleResponse_NatType{NatType: m.GetNatType()}
-		}
+            cmd.Info("Responding with relay=%s", relay)
+            res.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
+            res.RelayServer = relay
+            res.Pk = common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)
+            res.Union = &model_proto.PunchHoleResponse_NatType{NatType: m.GetNatType()}
+        }
 		if m, ok := lMsg.(*model_proto.RelayResponse); ok {
 			m.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
 			m.RelayServer = m.GetRelayServer()
@@ -249,6 +249,8 @@ func ConfigureUpdate(writer *common.Writer) {
 }
 
 func RendezvousMessagePunchHoleSent(message *model_proto.PunchHoleSent, writer *common.Writer) {
+	cmd.Info("PunchHoleSent id=%s relay=%s natType=%v",
+		message.GetId(), message.GetRelayServer(), message.GetNatType())
 	ringMsgMap.Store(message.GetId()+model_proto.TypeRendezvousMessagePunchHoleSent, &ringMsg{
 		ID: message.GetId(), Type: model_proto.TypeRendezvousMessagePunchHoleSent,
 		TimeOut: 3, InsTime: time.Now(), Val: message, Writer: writer,

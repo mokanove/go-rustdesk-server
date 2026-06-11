@@ -7,6 +7,19 @@ import (
 	"net"
 )
 
+const (
+    tcp = "tcp"
+    udp = "udp"
+
+    TCP = "tcp"
+    UDP = "udp"
+
+    PortSignal = ":21116"
+    PortNAT    = ":21115"
+    PortRelay  = ":21117"
+    PortWS     = ":21118"
+)
+
 type monitor struct {
 	network string
 	addr    string

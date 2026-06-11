@@ -55,9 +55,16 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 	var response proto.Message
 	switch msgType {
 	case model_proto.TypeRendezvousMessagePunchHoleRequest:
-		if req := message.GetPunchHoleRequest(); req != nil {
-			response = model_proto.NewRendezvousMessage(RendezvousMessagePunchHoleRequest(req, writer))
-		}
+    if req := message.GetPunchHoleRequest(); req != nil {
+        go func(r *model_proto.PunchHoleRequest, w *common.Writer) {
+            resp := RendezvousMessagePunchHoleRequest(r, w)
+            if resp != nil {
+                cmd.Info("TX response to %s %s", w.Type(), w.GetAddrStr())
+                w.SendMsg(model_proto.NewRendezvousMessage(resp))
+            }
+        }(req, writer)
+    }
+    return
 	case model_proto.TypeRendezvousMessageRegisterPk:
 		if req := message.GetRegisterPk(); req != nil {
 			response = model_proto.NewRendezvousMessage(RendezvousMessageRegisterPk(req, writer))
@@ -80,9 +87,16 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 			RendezvousMessageLocalAddr(req, writer)
 		}
 	case model_proto.TypeRendezvousMessageRequestRelay:
-		if req := message.GetRequestRelay(); req != nil {
-			response = model_proto.NewRendezvousMessage(RendezvousMessageRequestRelay(req))
-		}
+    if req := message.GetRequestRelay(); req != nil {
+        go func(r *model_proto.RequestRelay, w *common.Writer) {
+            resp := RendezvousMessageRequestRelay(r)
+            if resp != nil {
+                cmd.Info("TX response to %s %s", w.Type(), w.GetAddrStr())
+                w.SendMsg(model_proto.NewRendezvousMessage(resp))
+            }
+        }(req, writer)
+    }
+    return
 	case model_proto.TypeRendezvousMessageRelayResponse:
 		if req := message.GetRelayResponse(); req != nil {
 			RendezvousMessageRelayResponse(writer, req)

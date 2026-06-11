@@ -11,7 +11,7 @@ import (
 
 func Start() {
 	cmd.Info("Relay TCP listening %s", common.PortRelay)
-	common.NewMonitor(true, "tcp", "0.0.0.0"+common.PortRelay, handlerMsg).Start()
+	common.NewMonitor(true, "tcp", "[::]"+common.PortRelay, handlerMsg).Start()
 }
 
 func handlerMsg(msg []byte, writer *common.Writer) {
@@ -33,10 +33,6 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 	case model_proto.TypeRendezvousMessageRequestRelay:
 		rr := message.GetRequestRelay()
 		if rr == nil {
-			return
-		}
-		if common.MustKey && rr.LicenceKey != common.GetPkStr() {
-			cmd.Info("RELAY key mismatch from %s", writer.GetAddrStr())
 			return
 		}
 		uuid := rr.GetUuid()

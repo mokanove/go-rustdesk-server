@@ -1,7 +1,7 @@
 name: I've had enough of it, enough of it
 
 on:
-  push:
+  #push:
   workflow_dispatch:
 permissions:
   contents: write
@@ -15,6 +15,10 @@ jobs:
         include:
           - extra: ""
             nickname: "linux-amd64v4-glibc"
+          - extra: "GOOS=darwin GOARCH=arm64"
+            nickname: "darwin-arm64"
+          - extra: "GOOS=windows GOARCH=amd64"
+            nickname: "windows-amd64.exe"
           - extra: "CGO_ENABLED=0"
             nickname: "linux-amd64-musl"
             op: "yes"
@@ -25,10 +29,6 @@ jobs:
             op: "yes"
             patch_arch: "aarch64_generic"
             sdk_name: "openwrt-sdk-rockchip-armv8_gcc-14.3.0_musl.Linux-x86_64"
-          - extra: "GOOS=darwin GOARCH=arm64"
-            nickname: "darwin-arm64"
-          - extra: "GOOS=windows GOARCH=amd64"
-            nickname: "windows-amd64.exe"
 
     steps:
       - name: Checkout
@@ -131,10 +131,9 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - Help documentation added
-            - The issue of insufficient permissions for /etc/init.d/rsop has been fixed.
-            - Minor performance optimizations.
-            - The Relay blocking issue has been fixed.
+            - Performance optimization.
+            - The doctor will now check TCP port 21114.
+            - Fixed the issue of connection failures when the ID was shorter than 15 characters under IPv6.
             # ⚠️ WARNING:
             > If you are upgrading this version from rdks or a version lower than rsop V2.0.9.
             >
