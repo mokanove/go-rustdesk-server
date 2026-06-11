@@ -69,8 +69,9 @@ jobs:
           PKG_ARCH: ${{ matrix.patch_arch }}
         shell: bash
         run: |
-          mkdir ${{ matrix.sdk_name }}/package/rsop
+          mkdir -p ${{ matrix.sdk_name }}/package/rsop
           cd ${{ matrix.sdk_name }}/package/rsop
+
           cat << 'EOF' | envsubst > ./Makefile
           include $(TOPDIR)/rules.mk
           PKG_NAME:=rsop
