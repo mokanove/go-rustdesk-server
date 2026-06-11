@@ -8,6 +8,8 @@ import (
 	"go-rustdesk-server/relay"
 	"go-rustdesk-server/server"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
