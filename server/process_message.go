@@ -142,11 +142,9 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 	relay := getRelay()
 	cmd.Info("peerIsLan %v isLan %v", peerIsLan, isLan)
 	if peerIsLan != isLan {
-		if peerIsLan {
-			relay = writer.SelfAddr()
-		}
 		natType = model_proto.NatType_SYMMETRIC
 	}
+
 	sameIntranet := writer.GetAddr().GetIP() == peer.IP
 	cmd.Info("sameIntranet %v natType %v", sameIntranet, natType)
 	cmd.Info("relay addr: %s", relay)

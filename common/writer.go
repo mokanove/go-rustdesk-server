@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"io"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -164,15 +165,19 @@ func (w *Writer) Close() {
 }
 
 func (w *Writer) SelfAddr() string {
+	var ip string
 	switch w._type {
 	case udp:
-		ip, _ := GetHostPort(w.uConn.LocalAddr().String())
-		return ip
+		ip, _ = GetHostPort(w.uConn.LocalAddr().String())
 	case tcp:
-		ip, _ := GetHostPort(w.tConn.RemoteAddr().String())
-		return ip
+		ip, _ = GetHostPort(w.tConn.RemoteAddr().String())
+	default:
+		return ""
 	}
-	return ""
+	if strings.Contains(ip, ":") {
+		return "[" + ip + "]" + PortRelay
+	}
+	return ip + PortRelay
 }
 
 func GetWriter(key, _type string) (*Writer, error) {
