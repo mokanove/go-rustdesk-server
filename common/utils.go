@@ -1,11 +1,11 @@
 package common
 
 import (
+	"go-rustdesk-server/cmd"
 	"net"
 	"os"
 	"strconv"
 	"strings"
-	"go-rustdesk-server/cmd"
 )
 
 func Exists(path string) bool {
@@ -57,18 +57,18 @@ func GetHostPort(addr string) (string, uint64) {
 }
 
 func OutboundIP() string {
-    conn, err := net.Dial("udp6", "[2001:4860:4860::8844]:53")
-    if err == nil {
-        defer conn.Close()
-        host, _, _ := net.SplitHostPort(conn.LocalAddr().String())
-        return "[" + host + "]"
-    }
+	conn, err := net.Dial("udp6", "[2001:4860:4860::8844]:53")
+	if err == nil {
+		defer conn.Close()
+		host, _, _ := net.SplitHostPort(conn.LocalAddr().String())
+		return "[" + host + "]"
+	}
 	cmd.Warn("Can't get IPv6, falling back to IPv4")
-    conn, err = net.Dial("udp", "8.8.4.4:53")
-    if err != nil {
-        cmd.Fatal("Can't get IPV4")
-    }
-    defer conn.Close()
-    host, _, _ := net.SplitHostPort(conn.LocalAddr().String())
-    return host
+	conn, err = net.Dial("udp", "8.8.4.4:53")
+	if err != nil {
+		cmd.Fatal("Can't get IPV4")
+	}
+	defer conn.Close()
+	host, _, _ := net.SplitHostPort(conn.LocalAddr().String())
+	return host
 }

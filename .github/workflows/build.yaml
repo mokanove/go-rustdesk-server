@@ -109,7 +109,7 @@ jobs:
           chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/rustdesk/go-rustdesk-server
           chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/init.d/rsop
 
-      - name: Build!
+      - name: Build For OpenWrt
         if: matrix.op == 'yes'
         shell: bash
         run: |
@@ -133,7 +133,9 @@ jobs:
             # 📝 Release Notes
             - Performance optimization.
             - The doctor will now check TCP port 21114.
+            - The fake HTTP Server will now listen TCP port 21119.
             - Fixed the issue of connection failures when the ID was shorter than 15 characters under IPv6.
+            - Format codes
             # ⚠️ WARNING:
             > If you are upgrading this version from rdks or a version lower than rsop V2.0.9.
             >
@@ -141,5 +143,10 @@ jobs:
             ```
             rm -rf /etc/rustdesk /etc/init.d/rsop
             ```
+            > I am trying to fix the IPv6 server address connection problem.
+            >
+            > However, I discovered that this was a bug in the Rustdesk client, and there was nothing I could do about it.
+            >
+            > It is recommended to use a domain name for connection.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

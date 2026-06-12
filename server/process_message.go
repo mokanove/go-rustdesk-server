@@ -18,11 +18,11 @@ var (
 )
 
 var relayAddr = func() string {
-    return  common.OutboundIP() + ":21117"
+	return common.OutboundIP() + ":21117"
 }()
 
 func blacklistDetection(_ string, _ *common.Addr) bool { return false }
-func getRelay() string                                  { return relayAddr }
+func getRelay() string                                 { return relayAddr }
 
 func RendezvousMessageRegisterPeer(message *model_proto.RegisterPeer, writer *common.Writer) *model_proto.RegisterPeerResponse {
 	res := &model_proto.RegisterPeerResponse{}
@@ -178,12 +178,12 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 			return res
 		}
 		if m, ok := lMsg.(*model_proto.PunchHoleSent); ok {
-            cmd.Info("Responding with relay=%s", relay)
-            res.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
-            res.RelayServer = relay
-            res.Pk = common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)
-            res.Union = &model_proto.PunchHoleResponse_NatType{NatType: m.GetNatType()}
-        }
+			cmd.Info("Responding with relay=%s", relay)
+			res.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
+			res.RelayServer = relay
+			res.Pk = common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)
+			res.Union = &model_proto.PunchHoleResponse_NatType{NatType: m.GetNatType()}
+		}
 		if m, ok := lMsg.(*model_proto.RelayResponse); ok {
 			m.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
 			m.RelayServer = m.GetRelayServer()

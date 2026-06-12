@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"lukechampine.com/uint128"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -16,7 +17,7 @@ func DecodeHead(src []byte) (uint, uint, error) {
 	if src == nil || len(src) == 0 {
 		return 0, 0, errors.New("nil")
 	}
-	headLen := uint((src[0]&0x3) + 1)
+	headLen := uint((src[0] & 0x3) + 1)
 	if uint(len(src)) < headLen {
 		return 0, 0, errors.New("dataLen<headLen")
 	}
@@ -44,12 +45,11 @@ func DecodeHead(src []byte) (uint, uint, error) {
 	return n, realLength, nil
 }
 
-// Decode 去掉变长头，返回纯 payload。
 func Decode(src []byte) (data []byte, err error) {
 	if src == nil {
 		return
 	}
-	headLen := uint((src[0]&0x3) + 1)
+	headLen := uint((src[0] & 0x3) + 1)
 	if uint(len(src)) < headLen {
 		err = errors.New("dataLen<headLen")
 		return
@@ -58,7 +58,6 @@ func Decode(src []byte) (data []byte, err error) {
 	return
 }
 
-// Encoder 将 payload 打包成带变长头的帧。
 func Encoder(src []byte) (data []byte, err error) {
 	if src == nil {
 		return
@@ -88,42 +87,63 @@ func Encoder(src []byte) (data []byte, err error) {
 
 func EncodeAddr(addr string) (bs []byte) {
 	bs = make([]byte, 0)
-	tm := uint128.From64(uint64(uint32(time.Now().UnixMicro())))
-	split := strings.Split(addr, ":")
-	if len(split) != 2 {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
 		return
 	}
-	pInt, _ := strconv.ParseUint(split[1], 10, 32)
-	for _, s := range strings.Split(split[0], ".") {
-		parseInt, _ := strconv.ParseUint(s, 10, 8)
-		bs = append(bs, byte(parseInt))
+	pInt, _ := strconv.ParseUint(portStr, 10, 32)
+
+	ipAddr := net.ParseIP(host)
+	if ipAddr == nil {
+		return
 	}
-	var y uint32
-	_ = binary.Read(bytes.NewBuffer(bs), binary.LittleEndian, &y)
-	ip := uint128.From64(uint64(y))
-	port := uint128.From64(uint64(pInt))
-	a := ip.Add(tm).Lsh(49)
-	b := tm.Lsh(17)
-	c := tm.And(uint128.From64(0xFFFF)).Add(port)
-	d := a.Or(b).Or(c)
-	bs = make([]byte, 16)
-	d.PutBytes(bs) // PutLittleEndian → PutBytes
-	nPadding := 0
-	for i := 15; i >= 0; i-- {
-		if bs[i] == 0 {
-			nPadding++
-		} else {
-			break
+
+	if v4 := ipAddr.To4(); v4 != nil && !strings.Contains(host, ":") {
+		tm := uint128.From64(uint64(uint32(time.Now().UnixMicro())))
+		var y uint32
+		_ = binary.Read(bytes.NewBuffer(v4), binary.LittleEndian, &y)
+		ip := uint128.From64(uint64(y))
+		port := uint128.From64(pInt)
+		a := ip.Add(tm).Lsh(49)
+		b := tm.Lsh(17)
+		c := tm.And(uint128.From64(0xFFFF)).Add(port)
+		d := a.Or(b).Or(c)
+		bs = make([]byte, 16)
+		d.PutBytes(bs) // PutLittleEndian → PutBytes
+		nPadding := 0
+		for i := 15; i >= 0; i-- {
+			if bs[i] == 0 {
+				nPadding++
+			} else {
+				break
+			}
 		}
+		bs = bs[:(16 - nPadding)]
+		return bs
 	}
-	bs = bs[:(16 - nPadding)]
+
+	v6 := ipAddr.To16()
+	if v6 == nil {
+		return
+	}
+	bs = make([]byte, 19)
+	bs[0] = 1
+	copy(bs[1:17], v6)
+	binary.LittleEndian.PutUint16(bs[17:19], uint16(pInt))
 	return bs
 }
 
 func DecodeAddr(data []byte) string {
+	// IPv6 tagged form
+	if len(data) == 19 && data[0] == 1 {
+		ip := net.IP(append([]byte{}, data[1:17]...))
+		port := binary.LittleEndian.Uint16(data[17:19])
+		return fmt.Sprintf("[%s]:%d", ip.String(), port)
+	}
+
 	bs := make([]byte, 16)
 	copy(bs, data)
-	number := uint128.FromBytes(bs) // MustU128FromLittleEndian → FromBytes
+	number := uint128.FromBytes(bs)
 	tm := number.Rsh(17).And(uint128.From64(math.MaxUint32))
 	ip := number.Rsh(49).Sub(tm)
 	port := uint16(number.And(uint128.From64(0xFFFFFF)).Sub(tm.And(uint128.From64(0xFFFF))).Lo) // AsUint64() → .Lo

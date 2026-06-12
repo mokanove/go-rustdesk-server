@@ -14,13 +14,12 @@ type portCheck struct {
 }
 
 var checks = []portCheck{
-	{"21114", "tcp", "Fake Always 200OK Server"},
+	{"21114", "tcp", "Always 200OK Server"},
 	{"21115", "tcp", "Server TCP"},
 	{"21116", "tcp", "NAT Checker"},
 	{"21116", "udp", "Server UDP"},
 	{"21117", "tcp", "Relay TCP"},
 	{"21118", "tcp", "Server WebSocket"},
-	{"21119", "tcp", "Relay WebSocket"},
 }
 
 func Doctor() {

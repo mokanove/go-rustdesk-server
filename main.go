@@ -35,7 +35,7 @@ func main() {
 	go http_server.Always200Server()
 	common.LoadKey()
 	go server.Start()
-	go relay.Start()
+	relay.Start()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
