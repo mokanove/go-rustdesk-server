@@ -34,21 +34,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@main
 
-      - name: Set up Go
-        uses: actions/setup-go@main
-        with:
-          go-version: 'stable'
-
-      - name: Get Version
+      - name: Get Version & fuck cache
         id: get_version
         shell: bash
         run: |
           VERSION=$(grep 'const Version' cmd/version.go | cut -d'"' -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          mv go.mod go.mod.backup
+
+      - name: Set up Go
+        uses: actions/setup-go@main
+        with:
+          go-version: 'stable'
 
       - name: Build binary
         shell: bash
         run: |
+          mv go.mod.backup go.mod
           ${{ matrix.extra }} go build
           mv go-rustdesk-server* go-rustdesk-server-${{ matrix.nickname }}
 
@@ -131,7 +133,7 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - Fixed the issue of connection failures when the ID was shorter than 15 characters under IPv6.
+            - Fixes and improvements
             # ⚠️ WARNING:
             > I am trying to fix the IPv6 server address connection problem.
             >
