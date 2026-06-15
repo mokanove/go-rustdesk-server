@@ -4,6 +4,7 @@ Forked from [danbai225/go-rustdesk-server](https://github.com/danbai225/go-rustd
 
 ## ⬇️ Download
 [GitHub Releases](https://github.com/mokanove/go-rustdesk-server/releases)
+[Mirror by MoKanove](https://867678.xyz/doc/mirror)
 
 ## ✨ Features
 

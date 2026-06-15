@@ -3,10 +3,7 @@ package main
 import (
 	"fmt"
 	"go-rustdesk-server/cmd"
-	"go-rustdesk-server/common"
 	"go-rustdesk-server/http_server"
-	"go-rustdesk-server/relay"
-	"go-rustdesk-server/server"
 	"os"
 	"os/signal"
 	"syscall"
