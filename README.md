@@ -51,11 +51,10 @@ go build
 ```
 
 ### OpenWrt Package
+[Generic Document](https://867678.xyz/doc/build)
 
-> Full documentation: [Generic Document](https://867678.xyz/doc/build)
-
-From the SDK root directory, run these additional steps before building:
-
+> From the SDK root directory, run these additional steps before building:
+>
 > Replace `⚠️ARCH` and `⚠️LIBC` with the architecture and libc type of your target platform.
 ```bash
 cd ⚠️sdk-root/package/rsop/root/etc/rustdesk
@@ -64,6 +63,8 @@ wget "https://github.com/mokanove/go-rustdesk-server/releases/latest/download/go
 ```
 
 ## ⚖️ License
-> This project is licensed under **[MoPL](https://github.com/mokanove/mokanove/blob/main/docs/license.md)**.
+> This project is licensed under the **[MoPL](https://github.com/mokanove/mokanove/blob/main/docs/license.md)**.
+>
+> Source repository using MIT <https://github.com/danbai225/go-rustdesk-server> so can change to MoPL.
 >
 > We copied: Rustdesk Server. It is licensed under the GNU AGPL Version 3 <https://www.gnu.org/licenses/agpl-3.0.html>.

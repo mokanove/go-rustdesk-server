@@ -133,18 +133,6 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - Fixes and improvements
-            # ⚠️ WARNING:
-            > I am trying to fix the IPv6 server address connection problem.
-            >
-            > However, I discovered that this was a bug in the Rustdesk client, and there was nothing I could do about it.
-            >
-            > It is recommended to use a domain name for connection.
-            > If you are upgrading this version from rdks or a version lower than rsop V2.0.9.
-            >
-            > Please execute the following command before installing this version:
-            ```
-            rm -rf /etc/rustdesk /etc/init.d/rsop
-            ```
+            - Hacked https://github.com/danbai225/go-rustdesk-server
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
