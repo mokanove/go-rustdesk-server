@@ -25,7 +25,7 @@ func main() {
 		}
 	}
 	cmd.Log()
-	go http_server.Always200Server()
+	http_server.Always200Server()
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

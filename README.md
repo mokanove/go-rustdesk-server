@@ -16,7 +16,7 @@ Forked from [danbai225/go-rustdesk-server](https://github.com/danbai225/go-rustd
 ## ⚠️ Before You Start
 
 - **TCP and UDP ports 21114–21119 must all be open**, or the server will not work correctly.
-- Since this project has no WebUI, port `21114` hosts a stub WebServer that always returns `200 OK` to prevent client-side errors.
+- Since this project has no WebUI, port `21114` and `21119` hosts a stub WebServer that always returns `200 OK` to prevent client-side errors.
 - **OpenWrt users**: only `aarch64` and `amd64` CPU architectures are supported. Requires OpenWrt **25.12 or later** (apk package manager).
 
 ## 🚀 Quick Start
@@ -53,7 +53,6 @@ go build
 
 ### OpenWrt Package
 [Generic Document](https://867678.xyz/doc/build)
-
 > From the SDK root directory, run these additional steps before building:
 >
 > Replace `⚠️ARCH` and `⚠️LIBC` with the architecture and libc type of your target platform.
