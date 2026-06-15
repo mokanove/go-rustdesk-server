@@ -1,19 +1,19 @@
 package http_server
 
 import (
-	"net/http"
 	"go-rustdesk-server/cmd"
+	"net/http"
 )
 
 func Always200Server() {
 	addrs := []string{":21114", ":21119"}
 	for _, addr := range addrs {
-        go listenOn(addr)
-    }
+		go listenOn(addr)
+	}
 }
 
 func listenOn(addr string) {
-    handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
 		cmd.Info("HTTP %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 		w.Header().Set("Content-Length", "0")
 		w.Header().Del("Content-Type")

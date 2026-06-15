@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"go-rustdesk-server/cmd"
+	"go-rustdesk-server/common"
+	"go-rustdesk-server/server"
+	"go-rustdesk-server/relay"
+	"go-rustdesk-server/http_server"
 	"os"
 	"os/signal"
 	"syscall"
-	"go-rustdesk-server/cmd"
-	"go-rustdesk-server/http_server"
 )
 
 func main() {
@@ -26,6 +29,10 @@ func main() {
 	}
 	cmd.Log()
 	http_server.Always200Server()
+	common.LoadKey()
+	go server.Start()
+	relay.Start()
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

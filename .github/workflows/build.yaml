@@ -134,5 +134,7 @@ jobs:
           body: |
             # 📝 Release Notes
             - Fixes and improvements
+            # ⚠️ WARNING
+            -It seems to be in a connection failure state right now, and there's nothing I can do about it.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
