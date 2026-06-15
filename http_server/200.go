@@ -1,28 +1,30 @@
 package http_server
 
 import (
-	"go-rustdesk-server/cmd"
 	"net/http"
+	"go-rustdesk-server/cmd"
 )
 
 func Always200Server() {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		cmd.Info("HTTP %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
-		w.Header().Set("Content-Length", "0")
-		w.Header().Del("Content-Type")
-		w.WriteHeader(http.StatusOK)
+	addrs := []string{":21114", ":21119"}
+	for _, addr := range addrs {
+        go listenOn(addr)
+    }
+}
+
+func listenOn(addr string) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handleRequest)
+
+	cmd.Info("HTTP server listening on %s", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		cmd.Fatal("HTTP server on %s exited with error: %v", addr, err)
 	}
-	ports := []string{":21114", ":21119"}
-	for _, addr := range ports {
-		addr := addr
-		mux := http.NewServeMux()
-		mux.HandleFunc("/", handler)
-		go func() {
-			cmd.Info("Fake HTTP server listening on %s", addr)
-			if err := http.ListenAndServe(addr, mux); err != nil {
-				cmd.Fatal("Fake HTTP server error on %s: %s", addr, err)
-			}
-		}()
-	}
-	select {}
+}
+
+func handleRequest(w http.ResponseWriter, r *http.Request) {
+	cmd.Info("HTTP %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+	w.Header().Set("Content-Length", "0")
+	w.Header().Del("Content-Type")
+	w.WriteHeader(http.StatusOK)
 }

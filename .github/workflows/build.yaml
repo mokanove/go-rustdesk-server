@@ -133,6 +133,6 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - Hacked https://github.com/danbai225/go-rustdesk-server
+            - Fixes and improvements
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

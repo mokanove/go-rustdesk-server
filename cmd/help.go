@@ -2,14 +2,16 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 )
 
 func PrintHelp() {
-	fmt.Printf("Usage: \n")
-	fmt.Printf("  go-rustdesk-server [command]\n\n")
-	fmt.Printf("Available Commands:\n")
-	fmt.Printf("  no any:Run Rustdesk Server and Relay\n")
-	fmt.Printf("  version:Print version of go-rustdesk-server\n")
-	fmt.Printf("  doctor [IP/Domain]:Test rustdesk-server\n")
-	fmt.Printf("  any:Print help information\n")
+	fmt.Println("Usage:")
+	fmt.Println("  go-rustdesk-server [command]\n")
+	fmt.Println("Commands:")
+	fmt.Println("  (none)              Start the RustDesk relay server")
+	fmt.Println("  version             Print version and build info")
+	fmt.Println("  doctor <IP/domain>  Check all RustDesk port connectivity on a host")
+	fmt.Println("  help/any            Show this help message")
+	os.Exit(0)
 }

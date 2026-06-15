@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"runtime/debug"
 )
 
-const Version = "2.1.4"
+const Version = "2.1.5"
 
 func PrintVersion() {
 	fmt.Printf("Go-RustDesk-Server V%s\n\n", Version)
@@ -17,4 +18,5 @@ func PrintVersion() {
 	fmt.Printf("Golang Version=%s\n", info.GoVersion)
 	fmt.Printf("Commit=%s\n", settings["vcs.revision"])
 	fmt.Printf("CGO_Enabled=%s\n", settings["CGO_ENABLED"])
+	os.Exit(0)
 }
