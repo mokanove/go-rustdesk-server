@@ -14,7 +14,10 @@ import (
 var (
 	memoryPeerMap sync.Map
 	serial        int32 = 1
-	ringMsgMap    sync.Map
+	// punchHoleGroup coalesces concurrent/duplicate PunchHoleRequests for
+	// the same target id so only one notify-and-wait round trip to the
+	// peer actually happens, see coalesce.go.
+	punchHoleGroup = newCallGroup()
 )
 
 var relayAddr = func() string {
@@ -148,46 +151,59 @@ func RendezvousMessagePunchHoleRequest(message *model_proto.PunchHoleRequest, wr
 	sameIntranet := writer.GetAddr().GetIP() == peer.IP
 	cmd.Info("sameIntranet %v natType %v", sameIntranet, natType)
 	cmd.Info("relay addr: %s", relay)
+
+	dedupKey := peer.ID
 	if sameIntranet {
-		getPeer.SendMsg(model_proto.NewRendezvousMessage(&model_proto.FetchLocalAddr{
-			SocketAddr: my_bytes.EncodeAddr(writer.GetAddrStr()), RelayServer: relay,
-		}))
-		_, lMsg := getMsgForm(message.GetId(), []string{model_proto.TypeRendezvousMessageLocalAddr}, 3)
-		if lMsg == nil {
-			res.OtherFailure = "NoReturnMessage"
-			return res
+		dedupKey += ":local"
+	}
+
+	// Whoever gets here first for this target id actually notifies the
+	// peer and waits; anyone else asking for the same id while that's
+	// still in flight (typically the same caller retrying) shares the
+	// result instead of starting another redundant round trip.
+	w, lMsg := punchHoleGroup.Do(dedupKey, func() (*common.Writer, interface{}) {
+		if sameIntranet {
+			getPeer.SendMsg(model_proto.NewRendezvousMessage(&model_proto.FetchLocalAddr{
+				SocketAddr: my_bytes.EncodeAddr(writer.GetAddrStr()), RelayServer: relay,
+			}))
+			return getMsgForm(message.GetId(), []string{model_proto.TypeRendezvousMessageLocalAddr}, 3)
 		}
+		getPeer.SendMsg(model_proto.NewRendezvousMessage(&model_proto.PunchHole{
+			SocketAddr: my_bytes.EncodeAddr(writer.GetAddrStr()), RelayServer: relay, NatType: natType,
+		}))
+		return getMsgForm(message.GetId(), []string{
+			model_proto.TypeRendezvousMessagePunchHoleSent,
+			model_proto.TypeRendezvousMessageRelayResponse,
+		}, 3)
+	})
+
+	if lMsg == nil {
+		res.OtherFailure = "NoReturnMessage"
+		return res
+	}
+
+	if sameIntranet {
 		if m, ok := lMsg.(*model_proto.LocalAddr); ok {
 			res.SocketAddr = m.GetLocalAddr()
 			res.RelayServer = m.GetRelayServer()
 			res.Pk = common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)
 			res.Union = &model_proto.PunchHoleResponse_IsLocal{IsLocal: true}
 		}
-	} else {
-		getPeer.SendMsg(model_proto.NewRendezvousMessage(&model_proto.PunchHole{
-			SocketAddr: my_bytes.EncodeAddr(writer.GetAddrStr()), RelayServer: relay, NatType: natType,
-		}))
-		w, lMsg := getMsgForm(message.GetId(), []string{
-			model_proto.TypeRendezvousMessagePunchHoleSent,
-			model_proto.TypeRendezvousMessageRelayResponse,
-		}, 3)
-		if lMsg == nil {
-			res.OtherFailure = "NoReturnMessage"
-			return res
-		}
-		if m, ok := lMsg.(*model_proto.PunchHoleSent); ok {
-			cmd.Info("Responding with relay=%s", relay)
-			res.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
-			res.RelayServer = relay
-			res.Pk = common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)
-			res.Union = &model_proto.PunchHoleResponse_NatType{NatType: m.GetNatType()}
-		}
-		if m, ok := lMsg.(*model_proto.RelayResponse); ok {
-			m.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
-			m.RelayServer = m.GetRelayServer()
-			m.Union = &model_proto.RelayResponse_Pk{Pk: common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)}
-			return m
-		}
+		return res
+	}
+
+	if m, ok := lMsg.(*model_proto.PunchHoleSent); ok {
+		cmd.Info("Responding with relay=%s", relay)
+		res.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
+		res.RelayServer = relay
+		res.Pk = common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)
+		res.Union = &model_proto.PunchHoleResponse_NatType{NatType: m.GetNatType()}
+	}
+	if m, ok := lMsg.(*model_proto.RelayResponse); ok {
+		m.SocketAddr = my_bytes.EncodeAddr(w.GetAddrStr())
+		m.RelayServer = m.GetRelayServer()
+		m.Union = &model_proto.RelayResponse_Pk{Pk: common.GetSignPK(m.GetVersion(), peer.ID, peer.PK)}
+		return m
 	}
 	return res
 }
@@ -202,10 +218,7 @@ func RendezvousMessageTestNatRequest(message *model_proto.TestNatRequest, writer
 }
 
 func RendezvousMessageLocalAddr(message *model_proto.LocalAddr, writer *common.Writer) {
-	ringMsgMap.Store(message.GetId()+model_proto.TypeRendezvousMessageLocalAddr, &ringMsg{
-		ID: message.GetId(), Type: model_proto.TypeRendezvousMessageLocalAddr,
-		TimeOut: 3, InsTime: time.Now(), Val: message, Writer: writer,
-	})
+	msgNotifier.publish(message.GetId()+model_proto.TypeRendezvousMessageLocalAddr, writer, message)
 }
 
 func RendezvousMessageRequestRelay(message *model_proto.RequestRelay) *model_proto.RelayResponse {
@@ -234,10 +247,7 @@ func RendezvousMessageRequestRelay(message *model_proto.RequestRelay) *model_pro
 }
 
 func RendezvousMessageRelayResponse(w *common.Writer, message *model_proto.RelayResponse) {
-	ringMsgMap.Store(message.GetId()+model_proto.TypeRendezvousMessageRelayResponse, &ringMsg{
-		ID: message.GetId(), Type: model_proto.TypeRendezvousMessageRelayResponse,
-		TimeOut: 3, InsTime: time.Now(), Val: message, Writer: w,
-	})
+	msgNotifier.publish(message.GetId()+model_proto.TypeRendezvousMessageRelayResponse, w, message)
 }
 
 func ConfigureUpdate(writer *common.Writer) {
@@ -249,10 +259,7 @@ func ConfigureUpdate(writer *common.Writer) {
 func RendezvousMessagePunchHoleSent(message *model_proto.PunchHoleSent, writer *common.Writer) {
 	cmd.Info("PunchHoleSent id=%s relay=%s natType=%v",
 		message.GetId(), message.GetRelayServer(), message.GetNatType())
-	ringMsgMap.Store(message.GetId()+model_proto.TypeRendezvousMessagePunchHoleSent, &ringMsg{
-		ID: message.GetId(), Type: model_proto.TypeRendezvousMessagePunchHoleSent,
-		TimeOut: 3, InsTime: time.Now(), Val: message, Writer: writer,
-	})
+	msgNotifier.publish(message.GetId()+model_proto.TypeRendezvousMessagePunchHoleSent, writer, message)
 }
 
 func RendezvousMessageConfigureUpdate(message *model_proto.ConfigUpdate) {

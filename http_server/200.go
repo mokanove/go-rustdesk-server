@@ -21,8 +21,8 @@ func listenOn(addr string) {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler)
-	cmd.Info("HTTP server listening on %s", addr)
+	cmd.Info("Fake HTTP server listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
-		cmd.Fatal("HTTP server on %s exited with error: %v", addr, err)
+		cmd.Fatal("Fake HTTP server on %s exited with error: %v", addr, err)
 	}
 }
