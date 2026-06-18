@@ -14,18 +14,18 @@ jobs:
       matrix:
         include:
           - extra: ""
-            nickname: "linux-amd64v4-glibc"
+            nickname: "linux-glibc-amd64v4"
           - extra: "GOOS=darwin GOARCH=arm64"
             nickname: "darwin-arm64"
           - extra: "GOOS=windows GOARCH=amd64"
             nickname: "windows-amd64.exe"
           - extra: "CGO_ENABLED=0"
-            nickname: "linux-amd64-musl"
+            nickname: "linux-musl-amd64"
             openwrt: "yes"
             patch_arch: "x86_64"
             sdk_name: "openwrt-sdk-x86-64_gcc-14.3.0_musl.Linux-x86_64"
           - extra: "GOARCH=arm64"
-            nickname: "linux-arm64-musl"
+            nickname: "linux-musl-arm64"
             openwrt: "yes"
             patch_arch: "aarch64_generic"
             sdk_name: "openwrt-sdk-rockchip-armv8_gcc-14.3.0_musl.Linux-x86_64"
@@ -111,7 +111,7 @@ jobs:
           chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/rustdesk/go-rustdesk-server
           chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/init.d/rsop
 
-      - name: Build For OpenWrt
+      - name: Build for OpenWrt
         if: matrix.openwrt == 'yes'
         shell: bash
         run: |
