@@ -13,18 +13,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - extra: ""
+          - tag: ""
             nickname: "linux-glibc-amd64v4"
-          - extra: "GOOS=darwin GOARCH=arm64"
+          - tag: "GOOS=darwin GOARCH=arm64"
             nickname: "darwin-arm64"
-          - extra: "GOOS=windows GOARCH=amd64"
+          - tag: "GOOS=windows GOARCH=amd64"
             nickname: "windows-amd64.exe"
-          - extra: "CGO_ENABLED=0"
+          - tag: "CGO_ENABLED=0"
             nickname: "linux-musl-amd64"
             openwrt: "yes"
             patch_arch: "x86_64"
             sdk_name: "openwrt-sdk-x86-64_gcc-14.3.0_musl.Linux-x86_64"
-          - extra: "GOARCH=arm64"
+          - tag: "GOARCH=arm64"
             nickname: "linux-musl-arm64"
             openwrt: "yes"
             patch_arch: "aarch64_generic"
@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           mv go.mod.backup go.mod
-          ${{ matrix.extra }} go build
+          ${{ matrix.tag }} go build
           mv go-rustdesk-server* go-rustdesk-server-${{ matrix.nickname }}
 
       - name: Preparing build environment
