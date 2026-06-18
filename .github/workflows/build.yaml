@@ -13,8 +13,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - tag: ""
+          - tag: "GOAMD64=v4"
             nickname: "linux-glibc-amd64v4"
+          - tag: "GOAMD64=v3"
+            nickname: "linux-glibc-amd64v3"
+          - tag: "GOAMD64=v2"
+            nickname: "linux-glibc-amd64v2"
+          - tag: "GOAMD64=v1"
+            nickname: "linux-glibc-amd64v1"
+          - tag: ""
+            nickname: "linux-glibc-amd64"
           - tag: "GOOS=darwin GOARCH=arm64"
             nickname: "darwin-arm64"
           - tag: "GOOS=windows GOARCH=amd64"
@@ -133,6 +141,6 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - some action update
+            - Add GOAMD64 binary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
