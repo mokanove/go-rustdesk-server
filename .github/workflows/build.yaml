@@ -21,12 +21,12 @@ jobs:
             nickname: "windows-amd64.exe"
           - extra: "CGO_ENABLED=0"
             nickname: "linux-amd64-musl"
-            op: "yes"
+            openwrt: "yes"
             patch_arch: "x86_64"
             sdk_name: "openwrt-sdk-x86-64_gcc-14.3.0_musl.Linux-x86_64"
           - extra: "GOARCH=arm64"
             nickname: "linux-arm64-musl"
-            op: "yes"
+            openwrt: "yes"
             patch_arch: "aarch64_generic"
             sdk_name: "openwrt-sdk-rockchip-armv8_gcc-14.3.0_musl.Linux-x86_64"
 
@@ -55,17 +55,17 @@ jobs:
           mv go-rustdesk-server* go-rustdesk-server-${{ matrix.nickname }}
 
       - name: Preparing build environment
-        if: matrix.op == 'yes'
+        if: matrix.openwrt == 'yes'
         uses: mokanove/mokanove/actions/build-env@main
 
       - name: Prepare SDK
-        if: matrix.op == 'yes'
+        if: matrix.openwrt == 'yes'
         uses: mokanove/mokanove/actions/prepare-sdk@main
         with:
           sdk_name: ${{ matrix.sdk_name }}
 
       - name: Preparation before compilation
-        if: matrix.op == 'yes'
+        if: matrix.openwrt == 'yes'
         env:
           PKG_VERSION: ${{ steps.get_version.outputs.version }}
           PKG_ARCH: ${{ matrix.patch_arch }}
@@ -112,14 +112,14 @@ jobs:
           chmod +x ${{ matrix.sdk_name }}/package/rsop/root/etc/init.d/rsop
 
       - name: Build For OpenWrt
-        if: matrix.op == 'yes'
+        if: matrix.openwrt == 'yes'
         shell: bash
         run: |
           cd ${{ matrix.sdk_name }}
           make package/rsop/compile V=s -j$(nproc)
 
       - name: Rename compilation files
-        if: matrix.op == 'yes'
+        if: matrix.openwrt == 'yes'
         shell: bash
         run: |
           mv ${{ matrix.sdk_name }}/bin/packages/*/base/*.apk rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
@@ -133,6 +133,6 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - I love Claude and Anthropic, The IPv6 problem has been fixed!
+            - some action update
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
