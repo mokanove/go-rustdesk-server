@@ -133,8 +133,6 @@ jobs:
             rsop-${{ steps.get_version.outputs.version }}-${{ matrix.patch_arch }}.apk
           body: |
             # 📝 Release Notes
-            - Fixes and improvements
-            # ⚠️ WARNING
-            -It seems to be in a connection failure state right now, and there's nothing I can do about it.
+            - I love Claude and Anthropic, The IPv6 problem has been fixed!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

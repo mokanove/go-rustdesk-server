@@ -16,10 +16,6 @@ func Start() {
 
 func handlerMsg(msg []byte, writer *common.Writer) {
 	cmd.Info("RELAY-RX %s len %d", writer.GetAddrStr(), len(msg))
-	if blacklistDetection(writer.GetAddr()) {
-		writer.Close()
-		return
-	}
 	message := model_proto.RendezvousMessage{}
 	if err := proto.Unmarshal(msg, &message); err != nil || message.Union == nil {
 		if err != nil {
@@ -53,8 +49,4 @@ func handlerMsg(msg []byte, writer *common.Writer) {
 	default:
 		cmd.Info("RELAY unknown type %s", msgType)
 	}
-}
-
-func blacklistDetection(addr *common.Addr) bool {
-	return common.InList(addr.GetIP())
 }

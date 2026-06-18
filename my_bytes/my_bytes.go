@@ -126,18 +126,20 @@ func EncodeAddr(addr string) (bs []byte) {
 	if v6 == nil {
 		return
 	}
-	bs = make([]byte, 19)
-	bs[0] = 1
-	copy(bs[1:17], v6)
-	binary.LittleEndian.PutUint16(bs[17:19], uint16(pInt))
+	// Must match the official client's AddrMangle::encode for SocketAddr::V6:
+	// 16 raw IP bytes + 2-byte little-endian port, NO leading tag byte (18 bytes total).
+	bs = make([]byte, 18)
+	copy(bs[0:16], v6)
+	binary.LittleEndian.PutUint16(bs[16:18], uint16(pInt))
 	return bs
 }
 
 func DecodeAddr(data []byte) string {
-	// IPv6 tagged form
-	if len(data) == 19 && data[0] == 1 {
-		ip := net.IP(append([]byte{}, data[1:17]...))
-		port := binary.LittleEndian.Uint16(data[17:19])
+	// IPv6 form: official AddrMangle::decode distinguishes v6 purely by length == 18,
+	// with no tag byte (see hbb_common::AddrMangle::decode).
+	if len(data) == 18 {
+		ip := net.IP(append([]byte{}, data[0:16]...))
+		port := binary.LittleEndian.Uint16(data[16:18])
 		return fmt.Sprintf("[%s]:%d", ip.String(), port)
 	}
 
