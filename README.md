@@ -28,6 +28,11 @@ Forked from [danbai225/go-rustdesk-server](https://github.com/danbai225/go-rustd
 That's it. The server will start listening on TCP/UDP ports **21114–21119**.  
 Configure your RustDesk client just as you would with a standard rustdesk-server setup.
 
+```bash
+./go-rustdesk-server help
+```
+Using this to get help
+
 ## 🛠 OpenWrt Usage (rsop)
 
 ### Service Management
