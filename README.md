@@ -2,7 +2,7 @@
 Forked from [danbai225/go-rustdesk-server](https://github.com/danbai225/go-rustdesk-server).
 > A lightweight, no-frills RustDesk server — up and running before your blood pressure has a chance to rise.
 >
-> Thinking of giving up and migrating to rsop project.
+> I giveuped and moved to [Here](https://github.com/mokanove/rsop)
 
 ## ⬇️ Download
 [GitHub Releases](https://github.com/mokanove/go-rustdesk-server/releases)
